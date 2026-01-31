@@ -1,11 +1,13 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection; // Added for AddMediatR
+using Microsoft.Extensions.DependencyInjection;
+using Raqeeb.Application.Reports;
 using Raqeeb.Application.Scans.Commands;
 using Raqeeb.Domain.Entities;
 using Raqeeb.Domain.Interfaces;
 using Raqeeb.Infrastructure.Persistence;
+using Raqeeb.Infrastructure.Reporting;
 using Raqeeb.Infrastructure.Scanning;
 using Raqeeb.Infrastructure.Scanning.Modules;
 using Scalar.AspNetCore;
@@ -13,7 +15,6 @@ using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -26,6 +27,7 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddSingleton<IScanEngine, ScanEngine>();
 builder.Services.AddSingleton<IHttpCrawler, HttpCrawler>();
 builder.Services.AddTransient<IScannerModule, HeaderSecurityScanner>();
+builder.Services.AddSingleton<IReportGenerator, ReportGenerator>();
 builder.Services.AddHttpClient();
 
 // Application (MediatR)

@@ -1,0 +1,378 @@
+@page "/scan/{ScanId:guid}"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IRepository<ScanJob> ScanJobRepository
+@inject IRepository<Vulnerability> VulnerabilityRepository
+@inject NavigationManager NavigationManager
+@inject Raqeeb.Web.Services.ILocalizationService L
+
+<PageTitle>@L["ScanDetailsTitle"] - @L["AppName"]</PageTitle>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 400px;">
+        <div class="text-center">
+            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                <span class="visually-hidden">@L["Loading"]</span>
+            </div>
+            <p class="text-muted">@L["Loading"]</p>
+        </div>
+    </div>
+}
+else if (scan == null)
+{
+    <div class="alert alert-danger">
+        <h4><i class="bi bi-exclamation-triangle me-2"></i>@L["ErrorOccurred"]</h4>
+        <p>The requested scan could not be found.</p>
+        <a href="/scan-history" class="btn btn-primary">
+            <i class="bi bi-arrow-left me-1"></i>@L["ScanHistoryTitle"]
+        </a>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/scan-history">@L["ScanHistoryTitle"]</a></li>
+                    <li class="breadcrumb-item active">@scan.Id.ToString()[..8]...</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center gap-3">
+                <span class="status-badge @GetStatusBadgeClass(scan.Status)">
+                    <i class="bi @GetStatusIcon(scan.Status) me-1"></i>@L[scan.Status.ToString()]
+                </span>
+                <h1 class="mb-0">@L["ScanDetailsTitle"]</h1>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            @if (scan.Status == ScanStatus.Completed)
+            {
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-download me-1"></i>@L["ExportReport"]
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="/api/reports/@scan.Id/download/html" target="_blank">
+                                <i class="bi bi-filetype-html me-2"></i>@L["DownloadHtml"]
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="/api/reports/@scan.Id/download/json" target="_blank">
+                                <i class="bi bi-filetype-json me-2"></i>Download JSON
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="/api/reports/@scan.Id/view" target="_blank">
+                                <i class="bi bi-eye me-2"></i>View in Browser
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            }
+            @if (scan.Status == ScanStatus.Running || scan.Status == ScanStatus.Queued)
+            {
+                <button class="btn btn-outline-danger" @onclick="CancelScan">
+                    <i class="bi bi-x-circle me-1"></i>Cancel Scan
+                </button>
+            }
+            <a href="/new-scan" class="btn btn-primary">
+                <i class="bi bi-play-fill me-1"></i>New Scan
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-4 g-4">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle text-primary"></i>
+                    <span>Scan Information</span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="info-item">
+                                <label>Target URL</label>
+                                <code>@scan.Target?.Url</code>
+                            </div>
+                            <div class="info-item mt-3">
+                                <label>Scan Profile</label>
+                                <span>@(scan.ScanProfile?.Name ?? "Default")</span>
+                            </div>
+                            <div class="info-item mt-3">
+                                <label>Scan ID</label>
+                                <code class="small text-muted">@scan.Id</code>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-item">
+                                <label>Started</label>
+                                <span>@scan.StartTime.ToString("MMM dd, yyyy HH:mm:ss")</span>
+                            </div>
+                            <div class="info-item mt-3">
+                                <label>Completed</label>
+                                <span>@(scan.EndTime?.ToString("MMM dd, yyyy HH:mm:ss") ?? "In progress...")</span>
+                            </div>
+                            <div class="info-item mt-3">
+                                <label>Duration</label>
+                                <span class="fw-semibold">@GetDuration()</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    @if (scan.Status == ScanStatus.Running)
+                    {
+                        <div class="scan-progress mt-4">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                     style="width: 100%"></div>
+                            </div>
+                            <p class="text-center text-muted mt-2 mb-0">
+                                <i class="bi bi-arrow-repeat spin me-1"></i>Scanning in progress...
+                            </p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <i class="bi bi-pie-chart text-primary"></i>
+                    <span>Summary</span>
+                </div>
+                <div class="card-body">
+                    <div class="total-findings text-center mb-4">
+                        <div class="findings-number">@vulnerabilities.Count</div>
+                        <div class="findings-label">Total Findings</div>
+                    </div>
+                    <div class="severity-breakdown">
+                        <div class="severity-row">
+                            <span class="badge severity-critical">Critical</span>
+                            <span class="severity-count">@GetCountBySeverity(Severity.Critical)</span>
+                        </div>
+                        <div class="severity-row">
+                            <span class="badge severity-high">High</span>
+                            <span class="severity-count">@GetCountBySeverity(Severity.High)</span>
+                        </div>
+                        <div class="severity-row">
+                            <span class="badge severity-medium">Medium</span>
+                            <span class="severity-count">@GetCountBySeverity(Severity.Medium)</span>
+                        </div>
+                        <div class="severity-row">
+                            <span class="badge severity-low">Low</span>
+                            <span class="severity-count">@GetCountBySeverity(Severity.Low)</span>
+                        </div>
+                        <div class="severity-row">
+                            <span class="badge severity-info">Info</span>
+                            <span class="severity-count">@GetCountBySeverity(Severity.Info)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-shield-exclamation text-primary"></i>
+                <span>Vulnerabilities Found</span>
+            </div>
+            @if (scan.Status == ScanStatus.Running)
+            {
+                <span class="badge bg-info d-flex align-items-center gap-1">
+                    <span class="spinner-border spinner-border-sm"></span>
+                    Live updating...
+                </span>
+            }
+        </div>
+        <div class="card-body p-0">
+            @if (!vulnerabilities.Any())
+            {
+                <div class="empty-state">
+                    @if (scan.Status == ScanStatus.Running)
+                    {
+                        <i class="bi bi-search"></i>
+                        <h5>Scanning in progress...</h5>
+                        <p>No vulnerabilities found yet.</p>
+                    }
+                    else
+                    {
+                        <i class="bi bi-shield-check text-success"></i>
+                        <h5>All Clear!</h5>
+                        <p>No vulnerabilities found. The target appears to be secure.</p>
+                    }
+                </div>
+            }
+            else
+            {
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Name</th>
+                            <th>URL</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var vuln in vulnerabilities.OrderByDescending(v => v.Severity))
+                        {
+                            <tr>
+                                <td>
+                                    <span class="badge @GetSeverityClass(vuln.Severity)">
+                                        @vuln.Severity
+                                    </span>
+                                </td>
+                                <td>
+                                    <strong>@vuln.Name</strong>
+                                    <br />
+                                    <small class="text-muted">@(vuln.Description.Length > 80 ? vuln.Description[..80] + "..." : vuln.Description)</small>
+                                </td>
+                                <td><code class="small">@vuln.Url</code></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            @onclick="() => ShowVulnerabilityDetails(vuln)">
+                                        <i class="bi bi-eye me-1"></i>Details
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+}
+
+<VulnerabilityDetailsModal 
+    Vulnerability="selectedVulnerability" 
+    IsVisible="showVulnModal" 
+    OnClose="CloseVulnModal" />
+
+@code {
+    [Parameter]
+    public Guid ScanId { get; set; }
+
+    private ScanJob? scan;
+    private List<Vulnerability> vulnerabilities = [];
+    private bool isLoading = true;
+    private Timer? refreshTimer;
+    private Vulnerability? selectedVulnerability;
+    private bool showVulnModal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadScanAsync();
+        StartAutoRefresh();
+    }
+
+    private async Task LoadScanAsync()
+    {
+        scan = await ScanJobRepository.GetByIdAsync(ScanId);
+        if (scan != null)
+        {
+            var vulns = await VulnerabilityRepository.FindAsync(v => v.ScanJobId == ScanId);
+            vulnerabilities = vulns.ToList();
+        }
+        isLoading = false;
+    }
+
+    private void StartAutoRefresh()
+    {
+        refreshTimer = new Timer(async _ =>
+        {
+            if (scan?.Status == ScanStatus.Running || scan?.Status == ScanStatus.Queued)
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadScanAsync();
+                    StateHasChanged();
+                });
+            }
+            else
+            {
+                refreshTimer?.Dispose();
+            }
+        }, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+    }
+
+    private string GetDuration()
+    {
+        if (scan == null) return "-";
+        
+        var endTime = scan.EndTime ?? DateTime.UtcNow;
+        var duration = endTime - scan.StartTime;
+        
+        if (duration.TotalHours >= 1)
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m {duration.Seconds}s";
+        if (duration.TotalMinutes >= 1)
+            return $"{(int)duration.TotalMinutes}m {duration.Seconds}s";
+        return $"{(int)duration.TotalSeconds}s";
+    }
+
+    private int GetCountBySeverity(Severity severity) => 
+        vulnerabilities.Count(v => v.Severity == severity);
+
+    private static string GetStatusBadgeClass(ScanStatus status) => status switch
+    {
+        ScanStatus.Completed => "status-success",
+        ScanStatus.Running => "status-running",
+        ScanStatus.Queued => "status-queued",
+        ScanStatus.Failed => "status-failed",
+        ScanStatus.Cancelled => "status-cancelled",
+        _ => "status-cancelled"
+    };
+
+    private static string GetStatusIcon(ScanStatus status) => status switch
+    {
+        ScanStatus.Completed => "bi-check-circle-fill",
+        ScanStatus.Running => "bi-arrow-repeat",
+        ScanStatus.Queued => "bi-hourglass-split",
+        ScanStatus.Failed => "bi-x-circle-fill",
+        ScanStatus.Cancelled => "bi-slash-circle",
+        _ => "bi-circle"
+    };
+
+    private static string GetSeverityClass(Severity severity) => severity switch
+    {
+        Severity.Critical => "severity-critical",
+        Severity.High => "severity-high",
+        Severity.Medium => "severity-medium",
+        Severity.Low => "severity-low",
+        _ => "severity-info"
+    };
+
+    private void ShowVulnerabilityDetails(Vulnerability vuln)
+    {
+        selectedVulnerability = vuln;
+        showVulnModal = true;
+    }
+
+    private void CloseVulnModal()
+    {
+        showVulnModal = false;
+        selectedVulnerability = null;
+    }
+
+    private async Task CancelScan()
+    {
+        if (scan != null)
+        {
+            scan.Status = ScanStatus.Cancelled;
+            scan.EndTime = DateTime.UtcNow;
+            await ScanJobRepository.UpdateAsync(scan);
+            await LoadScanAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+}

@@ -1,0 +1,139 @@
+@inherits LayoutComponentBase
+
+<div class="auth-layout">
+    <div class="auth-container">
+        @Body
+    </div>
+    <div class="auth-background">
+        <div class="auth-bg-content">
+            <h2>Secure Your Web Applications</h2>
+            <p>Raqeeb helps you discover vulnerabilities before attackers do.</p>
+            <ul class="feature-list">
+                <li><i class="bi bi-check-circle-fill"></i> Comprehensive vulnerability scanning</li>
+                <li><i class="bi bi-check-circle-fill"></i> OWASP Top 10 coverage</li>
+                <li><i class="bi bi-check-circle-fill"></i> Detailed remediation guidance</li>
+                <li><i class="bi bi-check-circle-fill"></i> Scheduled automated scans</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+    .auth-layout {
+        display: flex;
+        min-height: 100vh;
+    }
+
+    .auth-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        background: var(--bg-primary);
+    }
+
+    .auth-background {
+        flex: 1;
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        color: white;
+    }
+
+    .auth-bg-content {
+        max-width: 400px;
+    }
+
+    .auth-bg-content h2 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    .auth-bg-content p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 2rem;
+    }
+
+    .feature-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .feature-list li {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 0;
+        font-size: 1rem;
+    }
+
+    .feature-list li i {
+        color: #22c55e;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 420px;
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 2.5rem;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .auth-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .auth-logo {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+    }
+
+    .auth-logo i {
+        font-size: 1.75rem;
+        color: white;
+    }
+
+    .auth-header h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        color: var(--text-primary);
+    }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .auth-footer a {
+        color: var(--primary);
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+
+    @@media (max-width: 992px) {
+        .auth-background {
+            display: none;
+        }
+    }
+</style>

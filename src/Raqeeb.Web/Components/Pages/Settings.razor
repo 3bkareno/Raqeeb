@@ -1,0 +1,109 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject Raqeeb.Web.Services.ILocalizationService L
+@inject NavigationManager Navigation
+
+<PageTitle>@L["SettingsTitle"] - @L["AppName"]</PageTitle>
+
+<div class="page-header mb-4">
+    <h1><i class="bi bi-gear text-primary me-2"></i>@L["SettingsTitle"]</h1>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card settings-card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-bell text-primary"></i>
+                <span>@L["Notifications"]</span>
+            </div>
+            <div class="card-body">
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h6>@L["ScanAlerts"]</h6>
+                        <p class="text-muted small mb-0">@L["ScanAlertsDescription"]</p>
+                    </div>
+                    <div class="setting-control">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="scanAlerts">
+                        </div>
+                    </div>
+                </div>
+                <hr />
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h6>@L["CriticalAlerts"]</h6>
+                        <p class="text-muted small mb-0">@L["CriticalAlertsDescription"]</p>
+                    </div>
+                    <div class="setting-control">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="criticalAlerts">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card settings-card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-info-circle text-primary"></i>
+                <span>@L["About"]</span>
+            </div>
+            <div class="card-body">
+                <div class="about-info">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div class="about-logo">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <div>
+                            <h4 class="mb-0">@L["AppName"]</h4>
+                            <small class="text-muted">@L["VulnerabilityScanner"]</small>
+                        </div>
+                    </div>
+                    <div class="about-details">
+                        <div class="about-item">
+                            <span class="label">@L["Version"]</span>
+                            <span class="value">1.0.0</span>
+                        </div>
+                        <div class="about-item">
+                            <span class="label">@L["Build"]</span>
+                            <span class="value">.NET 10</span>
+                        </div>
+                        <div class="about-item">
+                            <span class="label">@L["License"]</span>
+                            <span class="value">MIT</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card settings-card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-shield-lock text-primary"></i>
+                <span>@L["Security"]</span>
+            </div>
+            <div class="card-body">
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h6>@L["ApiAccess"]</h6>
+                        <p class="text-muted small mb-0">@L["ApiAccessDescription"]</p>
+                    </div>
+                    <div class="setting-control">
+                        <button class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-key me-1"></i>@L["ManageKeys"]
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool scanAlerts = true;
+    private bool criticalAlerts = true;
+}

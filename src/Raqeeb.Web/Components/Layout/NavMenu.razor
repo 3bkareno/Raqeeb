@@ -1,0 +1,102 @@
+@rendermode InteractiveServer
+@inject Raqeeb.Web.Services.ILocalizationService L
+
+<div class="sidebar-header">
+    <div class="logo-container">
+        <div class="logo-icon">
+            <i class="bi bi-shield-check"></i>
+        </div>
+        <span class="logo-text">@L["AppName"]</span>
+    </div>
+    <button class="navbar-toggler d-md-none" @onclick="ToggleNavMenu">
+        <i class="bi bi-list"></i>
+    </button>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable">
+    <nav class="sidebar-nav">
+        <div class="nav-section">
+            <span class="nav-section-title">@L["NavMain"]</span>
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>@L["NavDashboard"]</span>
+            </NavLink>
+            <NavLink class="nav-link" href="targets">
+                <i class="bi bi-crosshair"></i>
+                <span>@L["NavTargets"]</span>
+            </NavLink>
+            <NavLink class="nav-link" href="profiles">
+                <i class="bi bi-sliders"></i>
+                <span>@L["NavScanProfiles"]</span>
+            </NavLink>
+        </div>
+        
+        <div class="nav-section">
+            <span class="nav-section-title">@L["NavScanning"]</span>
+            <NavLink class="nav-link" href="new-scan">
+                <i class="bi bi-play-circle-fill"></i>
+                <span>@L["NavNewScan"]</span>
+            </NavLink>
+            <NavLink class="nav-link" href="scan-history">
+                <i class="bi bi-clock-history"></i>
+                <span>@L["NavScanHistory"]</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-section">
+            <span class="nav-section-title">@L["NavSystem"]</span>
+            <NavLink class="nav-link" href="settings">
+                <i class="bi bi-gear"></i>
+                <span>@L["NavSettings"]</span>
+            </NavLink>
+        </div>
+
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <div class="nav-section">
+                    <span class="nav-section-title">ADMIN</span>
+                    <NavLink class="nav-link" href="admin/users">
+                        <i class="bi bi-people"></i>
+                        <span>Users</span>
+                    </NavLink>
+                    <NavLink class="nav-link" href="admin/roles">
+                        <i class="bi bi-shield-lock"></i>
+                        <span>Roles</span>
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+    </nav>
+    
+    <div class="sidebar-footer">
+        <AuthorizeView>
+            <Authorized>
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <i class="bi bi-person-circle"></i>
+                    </div>
+                    <div class="user-details">
+                        <span class="user-name">@context.User.Identity?.Name</span>
+                        <a href="/logout" class="logout-link">Sign out</a>
+                    </div>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <a href="/login" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>Sign In
+                </a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}

@@ -1,0 +1,40 @@
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+<button class="btn btn-icon theme-toggle" @onclick="ToggleTheme" title="Toggle theme">
+    <i class="bi @iconClass"></i>
+</button>
+
+@code {
+    private string currentTheme = "light";
+    private string iconClass => currentTheme == "dark" ? "bi-sun-fill" : "bi-moon-fill";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                currentTheme = await JS.InvokeAsync<string>("themeManager.getTheme") ?? "light";
+                StateHasChanged();
+            }
+            catch
+            {
+                // JS not available yet
+            }
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        try
+        {
+            currentTheme = await JS.InvokeAsync<string>("themeManager.toggleTheme");
+            StateHasChanged();
+        }
+        catch
+        {
+            // Toggle failed
+        }
+    }
+}

@@ -18,6 +18,13 @@ namespace Raqeeb.Api.Controllers
             _mediator = mediator;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAllScans()
+        {
+            var scans = await _mediator.Send(new GetAllScansQuery());
+            return Ok(scans);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateScan([FromBody] CreateScanCommand command)
         {
@@ -31,6 +38,14 @@ namespace Raqeeb.Api.Controllers
             var status = await _mediator.Send(new GetScanStatusQuery { ScanJobId = id });
             if (status == null) return NotFound();
             return Ok(status);
+        }
+
+        [HttpGet("{id}/details")]
+        public async Task<IActionResult> GetScanDetails(Guid id)
+        {
+            var details = await _mediator.Send(new GetScanDetailsQuery(id));
+            if (details == null) return NotFound();
+            return Ok(details);
         }
     }
 }

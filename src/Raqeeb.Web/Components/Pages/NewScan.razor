@@ -1,0 +1,236 @@
+@page "/new-scan"
+@rendermode InteractiveServer
+@inject IRepository<Target> TargetRepository
+@inject IRepository<ScanProfile> ProfileRepository
+@inject IMediator Mediator
+@inject NavigationManager NavigationManager
+@inject Raqeeb.Web.Services.ILocalizationService L
+
+<PageTitle>@L["NewScanTitle"] - @L["AppName"]</PageTitle>
+
+<div class="page-header mb-4">
+    <h1>
+        <i class="bi bi-play-circle text-primary me-2"></i>@L["NewScanTitle"]
+    </h1>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-4">
+                <EditForm Model="scanRequest" OnValidSubmit="StartScan">
+                    <DataAnnotationsValidator />
+                    
+                    <!-- Step 1: Target Selection -->
+                    <div class="wizard-step mb-4">
+                        <h5 class="wizard-step-title">
+                            <span class="step-number">1</span>
+                            @L["SelectTarget"]
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-check-inline">
+                                <input type="radio" class="form-check-input" id="existingTarget" 
+                                       checked="@(!useNewTarget)" @onchange="() => useNewTarget = false" />
+                                <label class="form-check-label" for="existingTarget">@L["NavTargets"]</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input type="radio" class="form-check-input" id="newTarget" 
+                                       checked="@useNewTarget" @onchange="() => useNewTarget = true" />
+                                <label class="form-check-label" for="newTarget">@L["TargetUrl"]</label>
+                            </div>
+                        </div>
+                        
+                        @if (useNewTarget)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">@L["TargetUrl"]</label>
+                                <InputText @bind-Value="scanRequest.Url" class="form-control form-control-lg" 
+                                           placeholder="https://example.com" />
+                                <ValidationMessage For="() => scanRequest.Url" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Select Target</label>
+                                <select class="form-select form-select-lg" @bind="selectedTargetId">
+                                    <option value="">-- Select a target --</option>
+                                    @foreach (var target in targets)
+                                    {
+                                        <option value="@target.Id">@target.Url</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                    </div>
+
+                    <hr />
+
+                    <!-- Step 2: Profile Selection -->
+                    <!-- Step 2: Profile Selection -->
+                    <div class="wizard-step mb-4">
+                        <h5 class="wizard-step-title">
+                            <span class="step-number">2</span>
+                            Select Scan Profile
+                        </h5>
+                        
+                        <div class="row g-3">
+                            @foreach (var profile in profiles)
+                            {
+                                <div class="col-md-6">
+                                    <div class="profile-card @(selectedProfileId == profile.Id ? "selected" : "")"
+                                         @onclick="() => selectedProfileId = profile.Id">
+                                        <div class="profile-card-body">
+                                            <h6>@profile.Name</h6>
+                                            <p class="text-muted small mb-2">@profile.Description</p>
+                                            <div class="profile-meta">
+                                                <span><i class="bi bi-puzzle me-1"></i>@profile.EnabledModules.Count modules</span>
+                                                <span><i class="bi bi-speedometer2 me-1"></i>@profile.MaxConcurrency concurrent</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        
+                        @if (!profiles.Any())
+                        {
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                No scan profiles found. <a href="/profiles">Create one first</a>.
+                            </div>
+                        }
+                    </div>
+
+                    <hr class="my-4" />
+
+                    <!-- Step 3: Additional Options -->
+                    <div class="wizard-step mb-4">
+                        <h5 class="wizard-step-title">
+                            <span class="step-number">3</span>
+                            @L["ScanOptions"]
+                        </h5>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Additional scan options will be available after authentication is implemented.
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-primary btn-lg" 
+                                disabled="@(isStarting || !CanStartScan())">
+                            @if (isStarting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>@L["Loading"]</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-rocket-takeoff me-2"></i><span>Start Scan</span>
+                            }
+                        </button>
+                        <a href="/" class="btn btn-outline-secondary btn-lg">
+                            <i class="bi bi-x me-1"></i>Cancel
+                        </a>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card summary-card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-list-check text-primary"></i>
+                <span>Scan Summary</span>
+            </div>
+            <div class="card-body">
+                <div class="summary-item">
+                    <label>Target</label>
+                    <span>
+                        @if (useNewTarget)
+                        {
+                            <code>@(string.IsNullOrEmpty(scanRequest.Url) ? "Not specified" : scanRequest.Url)</code>
+                        }
+                        else
+                        {
+                            <code>@(GetSelectedTarget()?.Url ?? "Not selected")</code>
+                        }
+                    </span>
+                </div>
+                <div class="summary-item mt-3">
+                    <label>Profile</label>
+                    <span>@(GetSelectedProfile()?.Name ?? "Not selected")</span>
+                </div>
+                <div class="summary-item mt-3">
+                    <label>Modules</label>
+                    <span>@(GetSelectedProfile()?.EnabledModules.Count ?? 0) active</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid? TargetId { get; set; }
+
+    private CreateScanCommand scanRequest = new();
+    private List<Target> targets = [];
+    private List<ScanProfile> profiles = [];
+    private Guid? selectedTargetId;
+    private Guid? selectedProfileId;
+    private bool useNewTarget;
+    private bool isStarting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var targetsResult = await TargetRepository.GetAllAsync();
+        targets = targetsResult.ToList();
+
+        var profilesResult = await ProfileRepository.GetAllAsync();
+        profiles = profilesResult.ToList();
+
+        if (TargetId.HasValue)
+        {
+            selectedTargetId = TargetId.Value;
+        }
+
+        if (profiles.Any())
+        {
+            selectedProfileId = profiles.First().Id;
+        }
+    }
+
+    private Target? GetSelectedTarget() => targets.FirstOrDefault(t => t.Id == selectedTargetId);
+    private ScanProfile? GetSelectedProfile() => profiles.FirstOrDefault(p => p.Id == selectedProfileId);
+
+    private bool CanStartScan()
+    {
+        var hasTarget = useNewTarget ? !string.IsNullOrWhiteSpace(scanRequest.Url) : selectedTargetId.HasValue;
+        return hasTarget && selectedProfileId.HasValue;
+    }
+
+    private async Task StartScan()
+    {
+        if (!CanStartScan()) return;
+
+        isStarting = true;
+
+        if (!useNewTarget && selectedTargetId.HasValue)
+        {
+            var target = GetSelectedTarget();
+            if (target != null)
+            {
+                scanRequest.Url = target.Url;
+            }
+        }
+
+        scanRequest.ProfileId = selectedProfileId!.Value;
+
+        var scanId = await Mediator.Send(scanRequest);
+        NavigationManager.NavigateTo($"/scan/{scanId}");
+    }
+}

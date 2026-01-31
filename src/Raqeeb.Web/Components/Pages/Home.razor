@@ -1,0 +1,259 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject IRepository<ScanJob> ScanJobRepository
+@inject IRepository<Target> TargetRepository
+@inject IRepository<Vulnerability> VulnerabilityRepository
+@inject NavigationManager NavigationManager
+@inject Raqeeb.Web.Services.ILocalizationService L
+
+<PageTitle>@L["DashboardTitle"] - @L["AppName"]</PageTitle>
+
+<div class="page-header mb-4">
+    <div>
+        <h1 class="mb-1">
+            <i class="bi bi-shield-shaded text-primary me-2"></i>@L["DashboardTitle"]
+        </h1>
+        <p class="text-muted mb-0">@L["DashboardWelcome"]</p>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 300px;">
+        <div class="text-center">
+            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                <span class="visually-hidden">@L["Loading"]</span>
+            </div>
+            <p class="text-muted">@L["Loading"]</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon primary">
+                    <i class="bi bi-crosshair"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>@totalTargets</h3>
+                    <p>@L["NavTargets"]</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon success">
+                    <i class="bi bi-check2-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>@totalScans</h3>
+                    <p>@L["TotalScans"]</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <i class="bi bi-arrow-repeat"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>@activeScans</h3>
+                    <p>@L["ActiveScans"]</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon danger">
+                    <i class="bi bi-bug"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>@totalVulnerabilities</h3>
+                    <p>@L["TotalVulnerabilities"]</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <i class="bi bi-bar-chart-fill text-primary"></i>
+                    <span>@L["VulnerabilityBreakdown"]</span>
+                </div>
+                <div class="card-body">
+                    <div class="severity-bars">
+                        <div class="severity-bar-item">
+                            <span class="severity-label">@L["Critical"]</span>
+                            <div class="progress flex-grow-1 mx-3">
+                                <div class="progress-bar severity-critical" style="width: @GetPercentage(criticalCount)%"></div>
+                            </div>
+                            <span class="severity-count">@criticalCount</span>
+                        </div>
+                        <div class="severity-bar-item">
+                            <span class="severity-label">@L["High"]</span>
+                            <div class="progress flex-grow-1 mx-3">
+                                <div class="progress-bar severity-high" style="width: @GetPercentage(highCount)%"></div>
+                            </div>
+                            <span class="severity-count">@highCount</span>
+                        </div>
+                        <div class="severity-bar-item">
+                            <span class="severity-label">@L["Medium"]</span>
+                            <div class="progress flex-grow-1 mx-3">
+                                <div class="progress-bar severity-medium" style="width: @GetPercentage(mediumCount)%"></div>
+                            </div>
+                            <span class="severity-count">@mediumCount</span>
+                        </div>
+                        <div class="severity-bar-item">
+                            <span class="severity-label">@L["Low"]</span>
+                            <div class="progress flex-grow-1 mx-3">
+                                <div class="progress-bar severity-low" style="width: @GetPercentage(lowCount)%"></div>
+                            </div>
+                            <span class="severity-count">@lowCount</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-clock-history text-primary"></i>
+                        <span>@L["RecentScans"]</span>
+                    </div>
+                    <a href="/scan-history" class="btn btn-sm btn-outline-primary">@L["ViewAllScans"]</a>
+                </div>
+                <div class="card-body p-0">
+                    @if (recentScans.Any())
+                    {
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>@L["Target"]</th>
+                                    <th>@L["Status"]</th>
+                                    <th>@L["StartTime"]</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var scan in recentScans)
+                                {
+                                    <tr class="cursor-pointer" @onclick="() => NavigateToScan(scan.Id)">
+                                        <td><code>@scan.Target?.Url</code></td>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(scan.Status)">
+                                                <i class="bi @GetStatusIcon(scan.Status) me-1"></i>@L[scan.Status.ToString()]
+                                            </span>
+                                        </td>
+                                        <td>@scan.StartTime.ToString("MMM dd, HH:mm")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <i class="bi bi-inbox text-muted" style="font-size: 2.5rem;"></i>
+                            <p class="text-muted mt-2 mb-0">@L["NoScansYet"] <a href="/new-scan">@L["StartNewScan"]</a></p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex align-items-center gap-2">
+            <i class="bi bi-lightning-charge text-primary"></i>
+            <span>@L["QuickActions"]</span>
+        </div>
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-3">
+                <a href="/new-scan" class="btn btn-primary btn-lg">
+                    <i class="bi bi-play-fill me-2"></i>@L["StartNewScan"]
+                </a>
+                <a href="/targets" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-crosshair me-2"></i>@L["NavTargets"]
+                </a>
+                <a href="/profiles" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-sliders me-2"></i>@L["NavScanProfiles"]
+                </a>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private int totalTargets;
+    private int totalScans;
+    private int activeScans;
+    private int totalVulnerabilities;
+    private int criticalCount;
+    private int highCount;
+    private int mediumCount;
+    private int lowCount;
+    private List<ScanJob> recentScans = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardDataAsync();
+    }
+
+    private async Task LoadDashboardDataAsync()
+    {
+        var targets = await TargetRepository.GetAllAsync();
+        totalTargets = targets.Count();
+
+        var scans = await ScanJobRepository.GetAllAsync();
+        var scansList = scans.ToList();
+        totalScans = scansList.Count;
+        activeScans = scansList.Count(s => s.Status == ScanStatus.Running || s.Status == ScanStatus.Queued);
+        recentScans = scansList.OrderByDescending(s => s.StartTime).Take(5).ToList();
+
+        var vulnerabilities = await VulnerabilityRepository.GetAllAsync();
+        var vulnList = vulnerabilities.ToList();
+        totalVulnerabilities = vulnList.Count;
+        criticalCount = vulnList.Count(v => v.Severity == Severity.Critical);
+        highCount = vulnList.Count(v => v.Severity == Severity.High);
+        mediumCount = vulnList.Count(v => v.Severity == Severity.Medium);
+        lowCount = vulnList.Count(v => v.Severity == Severity.Low);
+
+        isLoading = false;
+    }
+
+    private int GetPercentage(int count)
+    {
+        if (totalVulnerabilities == 0) return 0;
+        return (int)((count / (double)totalVulnerabilities) * 100);
+    }
+
+    private void NavigateToScan(Guid scanId)
+    {
+        NavigationManager.NavigateTo($"/scan/{scanId}");
+    }
+
+    private static string GetStatusBadgeClass(ScanStatus status) => status switch
+    {
+        ScanStatus.Completed => "bg-success",
+        ScanStatus.Running => "bg-primary",
+        ScanStatus.Queued => "bg-info",
+        ScanStatus.Failed => "bg-danger",
+        ScanStatus.Cancelled => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
+    private static string GetStatusIcon(ScanStatus status) => status switch
+    {
+        ScanStatus.Completed => "bi-check-circle-fill",
+        ScanStatus.Running => "bi-arrow-repeat",
+        ScanStatus.Queued => "bi-hourglass-split",
+        ScanStatus.Failed => "bi-x-circle-fill",
+        ScanStatus.Cancelled => "bi-slash-circle",
+        _ => "bi-circle"
+    };
+}

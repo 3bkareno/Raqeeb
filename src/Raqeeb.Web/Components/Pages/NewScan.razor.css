@@ -1,0 +1,86 @@
+.page-header h1 {
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+.wizard-step {
+    padding-bottom: 1rem;
+}
+
+.wizard-step-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    border-radius: 50%;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.profile-card {
+    cursor: pointer;
+    padding: 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.profile-card:hover {
+    border-color: #a5b4fc;
+    background: #f8fafc;
+}
+
+.profile-card.selected {
+    border-color: #6366f1;
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.profile-card-body h6 {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.profile-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+.summary-card {
+    position: sticky;
+    top: 5rem;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.summary-item label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+}
+
+.summary-item span {
+    font-size: 0.9375rem;
+    color: #1e293b;
+}

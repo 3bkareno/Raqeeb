@@ -1,0 +1,257 @@
+@page "/profiles"
+@rendermode InteractiveServer
+@inject IRepository<ScanProfile> ProfileRepository
+@inject Raqeeb.Web.Services.ILocalizationService L
+
+<PageTitle>@L["ScanProfilesTitle"] - @L["AppName"]</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-sliders text-primary me-2"></i>@L["ScanProfilesTitle"]</h1>
+    <button class="btn btn-primary" @onclick="ShowAddModal">
+        <i class="bi bi-plus-lg me-1"></i>@L["CreateProfile"]
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@L["Loading"]</span>
+        </div>
+    </div>
+}
+else if (!profiles.Any())
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-sliders text-muted" style="font-size: 3rem;"></i>
+            <h5 class="mt-3">@L["NoProfiles"]</h5>
+            <p class="text-muted">@L["ProfileDescription"]</p>
+            <button class="btn btn-primary" @onclick="ShowAddModal">
+                <i class="bi bi-plus-lg me-1"></i>@L["CreateProfile"]
+            </button>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var profile in profiles)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">@profile.Name</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">@profile.Description</p>
+                        <hr />
+                        <div class="mb-2">
+                            <strong>Enabled Modules:</strong>
+                            <div class="mt-1">
+                                @if (profile.EnabledModules.Any())
+                                {
+                                    @foreach (var module in profile.EnabledModules)
+                                    {
+                                        <span class="badge bg-primary me-1">@module</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">All modules</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                Timeout: @profile.RequestTimeoutSeconds s | Concurrency: @profile.MaxConcurrency
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="btn-group btn-group-sm w-100">
+                            <button class="btn btn-outline-primary" @onclick="() => EditProfile(profile)">
+                                Edit
+                            </button>
+                            <button class="btn btn-outline-danger" @onclick="() => DeleteProfile(profile)">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "Edit" : "Create") Scan Profile</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <EditForm Model="currentProfile" OnValidSubmit="SaveProfile">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Profile Name</label>
+                                    <InputText @bind-Value="currentProfile.Name" class="form-control" placeholder="Quick Scan" />
+                                    <ValidationMessage For="() => currentProfile.Name" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Description</label>
+                                    <InputText @bind-Value="currentProfile.Description" class="form-control" placeholder="Fast security check" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Request Timeout (seconds)</label>
+                                    <InputNumber @bind-Value="currentProfile.RequestTimeoutSeconds" class="form-control" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Max Concurrency</label>
+                                    <InputNumber @bind-Value="currentProfile.MaxConcurrency" class="form-control" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Enabled Modules</label>
+                            <div class="row">
+                                @foreach (var module in availableModules)
+                                {
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" 
+                                                   id="@module" 
+                                                   checked="@currentProfile.EnabledModules.Contains(module)"
+                                                   @onchange="e => ToggleModule(module, (bool)(e.Value ?? false))" />
+                                            <label class="form-check-label" for="@module">@module</label>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Save Profile
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool showModal;
+    private bool isSaving;
+    private bool isEditing;
+    private List<ScanProfile> profiles = [];
+    private ScanProfile currentProfile = new();
+
+    private readonly List<string> availableModules =
+    [
+        "HeaderSecurityScanner",
+        "SqlInjectionScanner",
+        "XssScanner",
+        "DirectoryTraversalScanner",
+        "SensitiveDataScanner",
+        "SslTlsScanner"
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfilesAsync();
+    }
+
+    private async Task LoadProfilesAsync()
+    {
+        var result = await ProfileRepository.GetAllAsync();
+        profiles = result.ToList();
+        isLoading = false;
+    }
+
+    private void ShowAddModal()
+    {
+        currentProfile = new ScanProfile
+        {
+            RequestTimeoutSeconds = 30,
+            MaxConcurrency = 5
+        };
+        isEditing = false;
+        showModal = true;
+    }
+
+    private void EditProfile(ScanProfile profile)
+    {
+        currentProfile = new ScanProfile
+        {
+            Id = profile.Id,
+            Name = profile.Name,
+            Description = profile.Description,
+            RequestTimeoutSeconds = profile.RequestTimeoutSeconds,
+            MaxConcurrency = profile.MaxConcurrency,
+            EnabledModules = [.. profile.EnabledModules]
+        };
+        isEditing = true;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private void ToggleModule(string module, bool isEnabled)
+    {
+        if (isEnabled && !currentProfile.EnabledModules.Contains(module))
+        {
+            currentProfile.EnabledModules.Add(module);
+        }
+        else if (!isEnabled)
+        {
+            currentProfile.EnabledModules.Remove(module);
+        }
+    }
+
+    private async Task SaveProfile()
+    {
+        isSaving = true;
+        if (isEditing)
+        {
+            await ProfileRepository.UpdateAsync(currentProfile);
+        }
+        else
+        {
+            await ProfileRepository.AddAsync(currentProfile);
+        }
+        await LoadProfilesAsync();
+        showModal = false;
+        isSaving = false;
+    }
+
+    private async Task DeleteProfile(ScanProfile profile)
+    {
+        await ProfileRepository.DeleteAsync(profile);
+        await LoadProfilesAsync();
+    }
+}

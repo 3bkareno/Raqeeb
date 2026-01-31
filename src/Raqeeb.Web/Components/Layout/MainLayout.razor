@@ -1,0 +1,45 @@
+@inherits LayoutComponentBase
+@inject Raqeeb.Web.Services.ILocalizationService L
+
+<div class="app-container">
+    <aside class="sidebar">
+        <NavMenu />
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="top-header">
+            <div class="header-left">
+                <div class="header-status">
+                    <span class="status-dot"></span>
+                    <span>@L["SystemOnline"]</span>
+                </div>
+                <ThemeToggle />
+            </div>
+            <div class="header-center">
+                <h1 class="header-title">@L["AppTitle"]</h1>
+            </div>
+            <div class="header-right">
+                <div class="header-brand">
+                    <span class="brand-name">@L["AppName"]</span>
+                    <div class="brand-logo">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            @Body
+        </main>
+
+        <footer class="app-footer">
+            <span>@L["Copyright", DateTime.Now.Year]</span>
+        </footer>
+    </div>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    @L["ErrorOccurred"]
+    <a href="." class="reload">@L["Reload"]</a>
+    <span class="dismiss">x</span>
+</div>

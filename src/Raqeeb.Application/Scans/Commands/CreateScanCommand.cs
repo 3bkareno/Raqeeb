@@ -1,33 +1,30 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using MediatR;
 using Raqeeb.Domain.Entities;
 using Raqeeb.Domain.Interfaces;
 
-namespace Raqeeb.Application.Scans.Commands
+namespace Raqeeb.Application.Scans.Commands;
+
+public class CreateScanCommand : IRequest<Guid>
 {
-    public class CreateScanCommand : IRequest<Guid>
-    {
-        public string Url { get; set; } = string.Empty;
-        public Guid ProfileId { get; set; }
-        public string OwnerId { get; set; } = string.Empty;
-    }
+    public string Url { get; set; } = string.Empty;
+    public Guid ProfileId { get; set; }
+    public Guid? OwnerId { get; set; }
+}
 
-    public class CreateScanCommandHandler : IRequestHandler<CreateScanCommand, Guid>
-    {
-        private readonly IRepository<Target> _targetRepository;
-        private readonly IRepository<ScanJob> _scanJobRepository;
-        private readonly IScanEngine _scanEngine;
+public class CreateScanCommandHandler : IRequestHandler<CreateScanCommand, Guid>
+{
+    private readonly IRepository<Target> _targetRepository;
+    private readonly IRepository<ScanJob> _scanJobRepository;
+    private readonly IScanEngine _scanEngine;
 
-        public CreateScanCommandHandler(
-            IRepository<Target> targetRepository,
-            IRepository<ScanJob> scanJobRepository,
-            IScanEngine scanEngine)
-        {
-            _targetRepository = targetRepository;
-            _scanJobRepository = scanJobRepository;
-            _scanEngine = scanEngine;
+    public CreateScanCommandHandler(
+        IRepository<Target> targetRepository,
+        IRepository<ScanJob> scanJobRepository,
+        IScanEngine scanEngine)
+    {
+        _targetRepository = targetRepository;
+        _scanJobRepository = scanJobRepository;
+        _scanEngine = scanEngine;
         }
 
         public async Task<Guid> Handle(CreateScanCommand request, CancellationToken cancellationToken)
@@ -59,4 +56,3 @@ namespace Raqeeb.Application.Scans.Commands
             return scanJob.Id;
         }
     }
-}

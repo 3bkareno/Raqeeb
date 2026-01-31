@@ -1,0 +1,196 @@
+@page "/scan-history"
+@rendermode InteractiveServer
+@inject IRepository<ScanJob> ScanJobRepository
+@inject Raqeeb.Web.Services.ILocalizationService L
+
+<PageTitle>@L["ScanHistoryTitle"] - @L["AppName"]</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-clock-history text-primary me-2"></i>@L["ScanHistoryTitle"]</h1>
+    <a href="/new-scan" class="btn btn-primary">
+        <i class="bi bi-play-fill me-1"></i>@L["NavNewScan"]
+    </a>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@L["Loading"]</span>
+        </div>
+    </div>
+}
+else if (!scans.Any())
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-clock-history text-muted" style="font-size: 3rem;"></i>
+            <h5 class="mt-3">@L["NoScanHistory"]</h5>
+            <p class="text-muted">@L["StartFirstScan"]</p>
+            <a href="/new-scan" class="btn btn-primary">
+                <i class="bi bi-play-fill me-1"></i>@L["StartNewScan"]
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-header">
+            <div class="row align-items-center g-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="@L["Search"]..." 
+                               @bind="searchTerm" @bind:event="oninput" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" @bind="statusFilter">
+                        <option value="">@L["All"] @L["Status"]</option>
+                        <option value="Completed">@L["Completed"]</option>
+                        <option value="Running">Running</option>
+                        <option value="Queued">Queued</option>
+                        <option value="Failed">Failed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-md-5 text-end">
+                    <span class="text-muted">@FilteredScans.Count() scans found</span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Target</th>
+                        <th>Profile</th>
+                        <th>Status</th>
+                        <th>Started</th>
+                        <th>Duration</th>
+                        <th>Vulnerabilities</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var scan in FilteredScans)
+                    {
+                        <tr>
+                            <td>
+                                <code>@(scan.Target?.Url ?? "Unknown")</code>
+                            </td>
+                            <td>@(scan.ScanProfile?.Name ?? "Default")</td>
+                            <td>
+                                <span class="badge @GetStatusBadgeClass(scan.Status)">
+                                    <i class="bi @GetStatusIcon(scan.Status) me-1"></i>@scan.Status
+                                </span>
+                            </td>
+                            <td>@scan.StartTime.ToString("MMM dd, yyyy HH:mm")</td>
+                            <td>@GetDuration(scan)</td>
+                            <td>
+                                @if (scan.Vulnerabilities.Any())
+                                {
+                                    <span class="badge bg-danger">@scan.Vulnerabilities.Count</span>
+                                }
+                                else if (scan.Status == ScanStatus.Completed)
+                                {
+                                    <span class="text-success"><i class="bi bi-check-circle me-1"></i>Clean</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td>
+                                <a href="/scan/@scan.Id" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i>Details
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private List<ScanJob> scans = [];
+    private string searchTerm = "";
+    private string statusFilter = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadScansAsync();
+    }
+
+    private async Task LoadScansAsync()
+    {
+        var result = await ScanJobRepository.GetAllAsync();
+        scans = result.OrderByDescending(s => s.StartTime).ToList();
+        isLoading = false;
+    }
+
+    private IEnumerable<ScanJob> FilteredScans
+    {
+        get
+        {
+            var filtered = scans.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filtered = filtered.Where(s => 
+                    s.Target?.Url?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
+                    s.ScanProfile?.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true);
+            }
+
+            if (!string.IsNullOrWhiteSpace(statusFilter) && Enum.TryParse<ScanStatus>(statusFilter, out var status))
+            {
+                filtered = filtered.Where(s => s.Status == status);
+            }
+
+            return filtered;
+        }
+    }
+
+    private static string GetStatusBadgeClass(ScanStatus status) => status switch
+    {
+        ScanStatus.Completed => "bg-success",
+        ScanStatus.Running => "bg-primary",
+        ScanStatus.Queued => "bg-info",
+        ScanStatus.Failed => "bg-danger",
+        ScanStatus.Cancelled => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
+    private static string GetStatusIcon(ScanStatus status) => status switch
+    {
+        ScanStatus.Completed => "bi-check-circle-fill",
+        ScanStatus.Running => "bi-arrow-repeat",
+        ScanStatus.Queued => "bi-hourglass-split",
+        ScanStatus.Failed => "bi-x-circle-fill",
+        ScanStatus.Cancelled => "bi-slash-circle",
+        _ => "bi-circle"
+    };
+
+    private static string GetDuration(ScanJob scan)
+    {
+        if (scan.EndTime.HasValue)
+        {
+            var duration = scan.EndTime.Value - scan.StartTime;
+            return duration.TotalMinutes >= 1 
+                ? $"{(int)duration.TotalMinutes}m {duration.Seconds}s" 
+                : $"{(int)duration.TotalSeconds}s";
+        }
+        
+        if (scan.Status == ScanStatus.Running)
+        {
+            var duration = DateTime.UtcNow - scan.StartTime;
+            return $"{(int)duration.TotalMinutes}m (running)";
+        }
+
+        return "-";
+    }
+}

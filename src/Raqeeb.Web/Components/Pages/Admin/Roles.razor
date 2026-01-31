@@ -1,0 +1,304 @@
+@page "/admin/roles"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@inject ILocalizationService L
+@inject RoleManager<ApplicationRole> RoleManager
+
+<PageTitle>Role Management - @L["AppName"]</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-shield-lock text-primary me-2"></i>Role Management</h1>
+    <button class="btn btn-primary" @onclick="ShowAddModal">
+        <i class="bi bi-plus-lg me-1"></i>Add Role
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@L["Loading"]</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var role in roles)
+        {
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-shield me-2"></i>@role.Name
+                        </h5>
+                        @if (role.IsSystemRole)
+                        {
+                            <span class="badge bg-secondary">System</span>
+                        }
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">@(role.Description ?? "No description")</p>
+                        
+                        <h6 class="mt-3 mb-2">Permissions:</h6>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var perm in GetPermissionsForRole(role.Name!).Take(5))
+                            {
+                                <span class="badge bg-light text-dark">@perm.Split('.').Last()</span>
+                            }
+                            @{
+                                var totalPerms = GetPermissionsForRole(role.Name!).Length;
+                                if (totalPerms > 5)
+                                {
+                                    <span class="badge bg-primary">+@(totalPerms - 5) more</span>
+                                }
+                            }
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-primary flex-grow-1" 
+                                    @onclick="() => EditRole(role)">
+                                <i class="bi bi-pencil me-1"></i>Edit
+                            </button>
+                            @if (!role.IsSystemRole)
+                            {
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        @onclick="() => DeleteRole(role)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal d-block fade show" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-shield-plus me-2"></i>@(editingRole == null ? "Add Role" : "Edit Role")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <EditForm Model="roleModel" OnValidSubmit="SaveRole" FormName="RoleForm">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Role Name</label>
+                            <InputText @bind-Value="roleModel.Name" class="form-control" 
+                                       disabled="@(editingRole?.IsSystemRole == true)" />
+                            <ValidationMessage For="() => roleModel.Name" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <InputTextArea @bind-Value="roleModel.Description" class="form-control" rows="2" />
+                        </div>
+                        
+                        <h6 class="mt-4 mb-3">Permissions</h6>
+                        <div class="row g-3">
+                            @foreach (var group in permissionGroups)
+                            {
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header py-2">
+                                            <strong>@group.Key</strong>
+                                        </div>
+                                        <div class="card-body py-2">
+                                            @foreach (var perm in group.Value)
+                                            {
+                                                <div class="form-check">
+                                                    <input type="checkbox" class="form-check-input" id="perm_@perm"
+                                                           checked="@roleModel.SelectedPermissions.Contains(perm)"
+                                                           @onchange="(e) => TogglePermission(perm, (bool)e.Value!)" />
+                                                    <label class="form-check-label" for="perm_@perm">
+                                                        @perm.Split('.').Last()
+                                                    </label>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">@L["Cancel"]</button>
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            @L["Save"]
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool showModal;
+    private bool isSaving;
+    
+    private List<ApplicationRole> roles = [];
+    private ApplicationRole? editingRole;
+    private RoleFormModel roleModel = new();
+
+    private Dictionary<string, string[]> permissionGroups = new()
+    {
+        ["Targets"] = [
+            Raqeeb.Domain.Constants.Permissions.TargetsView,
+            Raqeeb.Domain.Constants.Permissions.TargetsCreate,
+            Raqeeb.Domain.Constants.Permissions.TargetsEdit,
+            Raqeeb.Domain.Constants.Permissions.TargetsDelete
+        ],
+        ["Scans"] = [
+            Raqeeb.Domain.Constants.Permissions.ScansView,
+            Raqeeb.Domain.Constants.Permissions.ScansCreate,
+            Raqeeb.Domain.Constants.Permissions.ScansCancel,
+            Raqeeb.Domain.Constants.Permissions.ScansDelete
+        ],
+        ["Profiles"] = [
+            Raqeeb.Domain.Constants.Permissions.ProfilesView,
+            Raqeeb.Domain.Constants.Permissions.ProfilesCreate,
+            Raqeeb.Domain.Constants.Permissions.ProfilesEdit,
+            Raqeeb.Domain.Constants.Permissions.ProfilesDelete
+        ],
+        ["Reports"] = [
+            Raqeeb.Domain.Constants.Permissions.ReportsView,
+            Raqeeb.Domain.Constants.Permissions.ReportsExport
+        ],
+        ["Settings"] = [
+            Raqeeb.Domain.Constants.Permissions.SettingsView,
+            Raqeeb.Domain.Constants.Permissions.SettingsEdit
+        ],
+        ["Users"] = [
+            Raqeeb.Domain.Constants.Permissions.UsersView,
+            Raqeeb.Domain.Constants.Permissions.UsersCreate,
+            Raqeeb.Domain.Constants.Permissions.UsersEdit,
+            Raqeeb.Domain.Constants.Permissions.UsersDelete,
+            Raqeeb.Domain.Constants.Permissions.RolesManage
+        ]
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private Task LoadDataAsync()
+    {
+        roles = RoleManager.Roles.OrderBy(r => r.Name).ToList();
+        isLoading = false;
+        return Task.CompletedTask;
+    }
+
+    private static string[] GetPermissionsForRole(string roleName)
+    {
+        return roleName switch
+        {
+            Raqeeb.Domain.Constants.Roles.Admin => Raqeeb.Domain.Constants.Permissions.AdminPermissions,
+            Raqeeb.Domain.Constants.Roles.User => Raqeeb.Domain.Constants.Permissions.UserPermissions,
+            Raqeeb.Domain.Constants.Roles.Viewer => Raqeeb.Domain.Constants.Permissions.ViewerPermissions,
+            _ => []
+        };
+    }
+
+    private void ShowAddModal()
+    {
+        editingRole = null;
+        roleModel = new RoleFormModel();
+        showModal = true;
+    }
+
+    private void EditRole(ApplicationRole role)
+    {
+        editingRole = role;
+        roleModel = new RoleFormModel
+        {
+            Name = role.Name ?? "",
+            Description = role.Description ?? "",
+            SelectedPermissions = GetPermissionsForRole(role.Name!).ToList()
+        };
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        editingRole = null;
+    }
+
+    private void TogglePermission(string permission, bool isChecked)
+    {
+        if (isChecked && !roleModel.SelectedPermissions.Contains(permission))
+        {
+            roleModel.SelectedPermissions.Add(permission);
+        }
+        else if (!isChecked)
+        {
+            roleModel.SelectedPermissions.Remove(permission);
+        }
+    }
+
+    private async Task SaveRole()
+    {
+        isSaving = true;
+
+        try
+        {
+            if (editingRole == null)
+            {
+                var role = new ApplicationRole(roleModel.Name)
+                {
+                    Description = roleModel.Description,
+                    IsSystemRole = false
+                };
+
+                await RoleManager.CreateAsync(role);
+            }
+            else
+            {
+                editingRole.Description = roleModel.Description;
+                await RoleManager.UpdateAsync(editingRole);
+            }
+
+            await LoadDataAsync();
+            CloseModal();
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteRole(ApplicationRole role)
+    {
+        if (!role.IsSystemRole)
+        {
+            await RoleManager.DeleteAsync(role);
+            roles.Remove(role);
+            StateHasChanged();
+        }
+    }
+
+    public class RoleFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Name { get; set; } = "";
+        
+        public string Description { get; set; } = "";
+        
+        public List<string> SelectedPermissions { get; set; } = [];
+    }
+}

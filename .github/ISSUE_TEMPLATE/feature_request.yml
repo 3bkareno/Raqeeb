@@ -1,0 +1,57 @@
+name: Feature Request
+description: Request a new feature for Raqeeb
+title: "[FEATURE]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Development Phase
+      description: Which phase does this feature belong to?
+      options:
+        - "Phase 1: Foundation & Security"
+        - "Phase 2: Scanner Modules"
+        - "Phase 3: Automation & Scheduling"
+        - "Phase 4: Reporting & Export"
+        - "Phase 5: UI/UX & Localization"
+        - "Phase 6: API & Integrations"
+        - "Phase 7: Enterprise Features"
+        - "Phase 8: Polish & Launch"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: Describe the feature you'd like to see
+      placeholder: "As a user, I want to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: How do we know this feature is complete?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Criterion 3
+
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimated Hours
+      placeholder: "8h"
