@@ -18,6 +18,7 @@ public class VulnerableTestController : ControllerBase
     public IActionResult NoSecurityHeaders()
     {
         // Remove all security headers
+        //
         Response.Headers.Remove("X-Frame-Options");
         Response.Headers.Remove("X-Content-Type-Options");
         Response.Headers.Remove("Content-Security-Policy");
