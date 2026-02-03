@@ -86,11 +86,11 @@ New vulnerabilities are added by creating a class that implements `IScannerModul
 
 ## 8. Roadmap
 
-1.  **Phase 1: Core Skeleton** (Current)
+1.  **Phase 1: Core Skeleton** ✅ (Completed)
     -   Setup Clean Architecture.
     -   Define Domain Entities.
     -   Implement Basic Scanner Interface.
-2.  **Phase 2: Scanning Engine**
+2.  **Phase 2: Scanning Engine** (Current)
     -   Implement HTTP Crawler.
     -   Create "Passive" modules (Header analysis).
     -   Create "Active" modules (Injection testing - Safe).
