@@ -16,11 +16,11 @@ Raqeeb provides **safe, authorized security testing** capabilities, helping deve
 
 ## 📊 Project Status
 
-**Current Phase: Phase 1 - Foundation & Security** ✅ (85% Complete)
+**Current Phase: Phase 2 - Scanner Modules** 🔄 (15% Complete)
 
 | Phase | Status | Progress |
 |-------|--------|----------|
-| **Phase 1: Foundation & Security** | ✅ **Complete** | **85%** |
+| **Phase 1: Foundation & Security** | ✅ **Complete** | **100%** |
 | Phase 2: Scanner Modules | 🔄 In Progress | 15% |
 | Phase 3: Automation & Scheduling | ⏳ Pending | 0% |
 | Phase 4: Reporting & Export | ⏳ Pending | 0% |
