@@ -3,7 +3,7 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-In%20Development-yellow)](ROADMAP.md)
-[![Tests](https://img.shields.io/badge/Tests-6%20Passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-29%20Passing-brightgreen)](tests/)
 [![Coverage](https://img.shields.io/badge/Coverage-2.2%25-yellow)](TestResults/CoverageReport/)
 
 **Raqeeb** (رقيب - Arabic for "Observer/Watcher") is a modern, modular **web security vulnerability scanner** built with **.NET 10** and designed using **Clean Architecture** principles.
@@ -16,12 +16,12 @@ Raqeeb provides **safe, authorized security testing** capabilities, helping deve
 
 ## 📊 Project Status
 
-**Current Phase: Phase 2 - Scanner Modules** 🔄 (15% Complete)
+**Current Phase: Phase 3 - Automation & Scheduling** ⏳ (0% Complete)
 
 | Phase | Status | Progress |
 |-------|--------|----------|
 | **Phase 1: Foundation & Security** | ✅ **Complete** | **100%** |
-| Phase 2: Scanner Modules | 🔄 In Progress | 15% |
+| **Phase 2: Scanner Modules** | ✅ **Complete** | **100%** |
 | Phase 3: Automation & Scheduling | ⏳ Pending | 0% |
 | Phase 4: Reporting & Export | ⏳ Pending | 0% |
 | Phase 5: UI/UX & Localization | ⏳ Pending | 0% |
@@ -44,10 +44,23 @@ Raqeeb provides **safe, authorized security testing** capabilities, helping deve
 - ✅ Header Security Scanner
 - ✅ Vulnerable test endpoints for validation
 
+### ✅ Phase 2 Completed Features:
+- ✅ XSS Scanner (Reflected, Stored, DOM-based)
+- ✅ SQL Injection Scanner (Error-based, Blind, Time-based)
+- ✅ CSRF Scanner (Token validation, SameSite cookies)
+- ✅ SSL/TLS Scanner (Certificate validation, HSTS, Mixed content)
+- ✅ CORS Scanner (Misconfiguration detection)
+- ✅ Open Redirect Scanner
+- ✅ Clickjacking Scanner (X-Frame-Options, CSP)
+- ✅ Directory Bruteforce Scanner
+- ✅ Port Scanner (Common ports, Service detection)
+- ✅ Subdomain Enumeration Scanner
+- ✅ Comprehensive test suite (29 tests passing)
+
 ### 🔄 Currently Working On:
-- Scanner module expansion (XSS, SQL Injection, CSRF)
-- Integration tests for scan engine
-- Increasing test coverage to 70%+
+- Phase 3: Automation & Scheduling
+- Background job processing with Hangfire
+- Scheduled scans and notifications
 
 📋 Full roadmap: [ROADMAP.md](ROADMAP.md)
 
@@ -56,7 +69,7 @@ Raqeeb provides **safe, authorized security testing** capabilities, helping deve
 ## 🧪 Test Status
 
 ```
-✅ Tests: 6 passing (100% pass rate)
+✅ Tests: 29 passing (100% pass rate)
 📊 Line Coverage: 2.2% (58/2537 lines)
 📈 Method Coverage: 11% (25/227 methods)
 🎯 Target Coverage: 70%
@@ -186,15 +199,12 @@ Raqeeb follows **Clean Architecture** with clear layer separation:
 
 ## 🚧 Coming Soon
 
-### Phase 2: Scanner Modules (In Progress)
-- 🔄 XSS (Cross-Site Scripting) Scanner
-- 🔄 SQL Injection Scanner
-- 🔄 CSRF (Cross-Site Request Forgery) Scanner
-- 🔄 Broken Authentication Scanner
-- 🔄 Sensitive Data Exposure Scanner
-- 🔄 XML External Entity (XXE) Scanner
-- 🔄 Broken Access Control Scanner
-- 🔄 Security Misconfiguration Scanner
+### Phase 3: Automation & Scheduling (Next)
+- 📅 Scheduled scans
+- 🔁 Recurring scan jobs
+- 📧 Email notifications
+- 🔔 Webhook integrations
+- 🤖 Automated remediation suggestions
 
 ### Phase 3: Automation
 - 📅 Scheduled scans
