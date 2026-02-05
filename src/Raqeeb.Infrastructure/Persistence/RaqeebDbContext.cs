@@ -15,6 +15,9 @@ public class RaqeebDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
     public DbSet<ScanProfile> ScanProfiles { get; set; }
     public DbSet<Vulnerability> Vulnerabilities { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<Schedule> Schedules { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<NotificationPreference> NotificationPreferences { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -79,6 +82,43 @@ public class RaqeebDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
         modelBuilder.Entity<Vulnerability>(entity =>
         {
             entity.HasKey(e => e.Id);
+        });
+
+        modelBuilder.Entity<Schedule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.CronExpression).IsRequired().HasMaxLength(100);
+            entity.HasOne(e => e.Target)
+                  .WithMany()
+                  .HasForeignKey(e => e.TargetId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ScanProfile)
+                  .WithMany()
+                  .HasForeignKey(e => e.ScanProfileId);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.HasIndex(e => e.RecipientUserId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasOne(e => e.RelatedScanJob)
+                  .WithMany()
+                  .HasForeignKey(e => e.RelatedScanJobId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<NotificationPreference>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.UserId).IsUnique();
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -1,4 +1,6 @@
 using HealthChecks.UI.Client;
+using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
@@ -8,6 +10,8 @@ using Raqeeb.Application.Scans.Commands;
 using Raqeeb.Domain.Constants;
 using Raqeeb.Domain.Entities;
 using Raqeeb.Domain.Interfaces;
+using Raqeeb.Infrastructure.Jobs;
+using Raqeeb.Infrastructure.Notifications;
 using Raqeeb.Infrastructure.Persistence;
 using Raqeeb.Infrastructure.Scanning;
 using Raqeeb.Infrastructure.Scanning.Modules;
@@ -54,6 +58,19 @@ try
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
     builder.Services.AddDbContext<RaqeebDbContext>(options =>
         options.UseSqlServer(connectionString));
+
+    // Hangfire
+    builder.Services.AddHangfire(config => config
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UseSqlServerStorage(connectionString));
+
+    builder.Services.AddHangfireServer(options =>
+    {
+        options.WorkerCount = 2; // Number of concurrent background jobs
+        options.Queues = new[] { "default", "high-priority" };
+    });
 
     // Identity
     builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
@@ -116,6 +133,13 @@ try
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IAuditService, AuditService>();
+    
+    // Phase 3: Notification and Scheduling Services
+    builder.Services.AddScoped<IEmailService, EmailService>();
+    builder.Services.AddScoped<INotificationService, NotificationService>();
+    builder.Services.AddScoped<IWebhookService, WebhookService>();
+    builder.Services.AddScoped<IScheduleService, ScheduleService>();
+    builder.Services.AddScoped<ScanJobProcessor>();
 
     // Domain & Infrastructure
     builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
@@ -221,6 +245,12 @@ try
     });
 
     app.UseAntiforgery();
+    
+    // Hangfire Dashboard (protected by authorization)
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new HangfireAuthorizationFilter() }
+    });
 
     // Map auth endpoints (for login/logout via HTTP POST)
     app.MapAuthEndpoints();

@@ -320,6 +320,105 @@ namespace Raqeeb.Infrastructure.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("Raqeeb.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RecipientEmail")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RecipientUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid?>("RelatedScanJobId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("RecipientUserId");
+
+                    b.HasIndex("RelatedScanJobId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Raqeeb.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("EmailOnCriticalVulnerability")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("EmailOnHighSeverityVulnerability")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("EmailOnScanComplete")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("EmailOnScanFailed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("InAppNotifications")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("WebhookEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("WebhookUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationPreferences");
+                });
+
             modelBuilder.Entity("Raqeeb.Domain.Entities.ScanJob", b =>
                 {
                     b.Property<Guid>("Id")
@@ -377,6 +476,55 @@ namespace Raqeeb.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ScanProfiles");
+                });
+
+            modelBuilder.Entity("Raqeeb.Domain.Entities.Schedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CronExpression")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastRunAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("NextRunAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ScanProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScanProfileId");
+
+                    b.HasIndex("TargetId");
+
+                    b.ToTable("Schedules");
                 });
 
             modelBuilder.Entity("Raqeeb.Domain.Entities.Target", b =>
@@ -505,6 +653,27 @@ namespace Raqeeb.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Raqeeb.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("Raqeeb.Domain.Entities.ScanJob", "RelatedScanJob")
+                        .WithMany()
+                        .HasForeignKey("RelatedScanJobId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("RelatedScanJob");
+                });
+
+            modelBuilder.Entity("Raqeeb.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.HasOne("Raqeeb.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Raqeeb.Domain.Entities.ScanJob", b =>
                 {
                     b.HasOne("Raqeeb.Domain.Entities.ScanProfile", "ScanProfile")
@@ -515,6 +684,25 @@ namespace Raqeeb.Infrastructure.Migrations
 
                     b.HasOne("Raqeeb.Domain.Entities.Target", "Target")
                         .WithMany("ScanJobs")
+                        .HasForeignKey("TargetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ScanProfile");
+
+                    b.Navigation("Target");
+                });
+
+            modelBuilder.Entity("Raqeeb.Domain.Entities.Schedule", b =>
+                {
+                    b.HasOne("Raqeeb.Domain.Entities.ScanProfile", "ScanProfile")
+                        .WithMany()
+                        .HasForeignKey("ScanProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Raqeeb.Domain.Entities.Target", "Target")
+                        .WithMany()
                         .HasForeignKey("TargetId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
