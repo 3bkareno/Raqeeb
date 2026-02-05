@@ -88,7 +88,6 @@ namespace Raqeeb.Infrastructure.Notifications
             }
 
             // Default preferences if not set
-            var emailEnabled = preferences?.EmailOnScanComplete ?? true;
             var webhookEnabled = preferences?.WebhookEnabled ?? false;
             var webhookUrl = preferences?.WebhookUrl;
 

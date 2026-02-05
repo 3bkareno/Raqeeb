@@ -89,15 +89,16 @@ namespace Raqeeb.Infrastructure.Notifications
 
         public async Task SendTemplateEmailAsync(string to, string templateName, object model)
         {
+            // TODO: Implement proper Razor-based email templates that utilize the model data
             // For now, we'll use simple string templates
-            // In the future, this can be enhanced with Razor templates or similar
             var (subject, body) = GenerateEmailFromTemplate(templateName, model);
             await SendEmailAsync(to, subject, body, true);
         }
 
         private (string subject, string body) GenerateEmailFromTemplate(string templateName, object model)
         {
-            // Simple template generation - can be enhanced later
+            // TODO: Replace with proper templating that uses the model parameter
+            // This is a placeholder implementation
             return templateName switch
             {
                 "ScanCompleted" => ("Scan Completed", $"<html><body><h2>Scan Completed</h2><p>Your scan has been completed successfully.</p></body></html>"),

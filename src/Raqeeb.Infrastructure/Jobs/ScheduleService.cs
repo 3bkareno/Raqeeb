@@ -136,9 +136,9 @@ namespace Raqeeb.Infrastructure.Jobs
         {
             try
             {
-                // This is a simplified implementation
-                // In production, you'd use Cronos or similar library to calculate next run
-                // For now, return a placeholder
+                // TODO: Integrate Cronos library for accurate CRON parsing
+                // This is a placeholder implementation
+                // Hangfire handles actual scheduling correctly, this is just for display
                 return DateTime.UtcNow.AddHours(1);
             }
             catch (Exception ex)
