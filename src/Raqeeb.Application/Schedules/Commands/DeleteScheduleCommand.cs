@@ -25,7 +25,13 @@ public class DeleteScheduleCommandHandler : IRequestHandler<DeleteScheduleComman
     public async Task<Unit> Handle(DeleteScheduleCommand request, CancellationToken cancellationToken)
     {
         await _scheduleService.RemoveRecurringJobAsync(request.Id);
-        await _scheduleRepository.DeleteAsync(request.Id);
+        
+        var schedule = await _scheduleRepository.GetByIdAsync(request.Id);
+        if (schedule != null)
+        {
+            await _scheduleRepository.DeleteAsync(schedule);
+        }
+        
         return Unit.Value;
     }
 }

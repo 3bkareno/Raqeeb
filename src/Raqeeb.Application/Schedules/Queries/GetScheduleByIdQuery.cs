@@ -1,7 +1,6 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Raqeeb.Domain.Entities;
-using Raqeeb.Infrastructure.Persistence;
+using Raqeeb.Domain.Interfaces;
 
 namespace Raqeeb.Application.Schedules.Queries;
 
@@ -12,18 +11,15 @@ public class GetScheduleByIdQuery : IRequest<Schedule?>
 
 public class GetScheduleByIdQueryHandler : IRequestHandler<GetScheduleByIdQuery, Schedule?>
 {
-    private readonly RaqeebDbContext _context;
+    private readonly IRepository<Schedule> _scheduleRepository;
 
-    public GetScheduleByIdQueryHandler(RaqeebDbContext context)
+    public GetScheduleByIdQueryHandler(IRepository<Schedule> scheduleRepository)
     {
-        _context = context;
+        _scheduleRepository = scheduleRepository;
     }
 
     public async Task<Schedule?> Handle(GetScheduleByIdQuery request, CancellationToken cancellationToken)
     {
-        return await _context.Schedules
-            .Include(s => s.Target)
-            .Include(s => s.ScanProfile)
-            .FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken);
+        return await _scheduleRepository.GetByIdAsync(request.Id);
     }
 }
