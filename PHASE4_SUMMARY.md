@@ -22,7 +22,7 @@ Phase 4 focused on adding comprehensive reporting and export capabilities to Raq
   - Compliance information (OWASP/CWE)
   - Color-coded severity indicators
   - Page numbering and footer information
-- ✅ Installed EPPlus (v7.6.0) for Excel export
+- ✅ Installed EPPlus (v7.5.4, resolves to v7.6.0) for Excel export
 - ✅ Implemented Excel report generation
   - Summary statistics
   - Risk assessment section
@@ -173,7 +173,8 @@ dotnet ef migrations remove --project src/Raqeeb.Infrastructure --startup-projec
 ### NuGet Packages Added
 ```xml
 <PackageReference Include="QuestPDF" Version="2024.12.3" />
-<PackageReference Include="EPPlus" Version="7.6.0" />
+<PackageReference Include="EPPlus" Version="7.5.4" />
+<!-- Note: EPPlus 7.5.4 resolves to 7.6.0 during restore -->
 ```
 
 ### License Configuration
