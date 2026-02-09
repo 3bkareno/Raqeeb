@@ -1,4 +1,5 @@
 using MediatR;
+using Raqeeb.Domain.Constants;
 using Raqeeb.Domain.Entities;
 using Raqeeb.Domain.Interfaces;
 
@@ -62,7 +63,11 @@ public class GetScanReportQueryHandler : IRequestHandler<GetScanReportQuery, Sca
                 SeverityScore = GetSeverityScore(v.Severity),
                 Url = v.Url,
                 Evidence = v.Evidence,
-                Remediation = v.Remediation
+                Remediation = v.Remediation,
+                // Auto-populate compliance mappings if not already set
+                OwaspCategory = v.OwaspCategory ?? ComplianceMapping.GetOwaspCategory(v.Name),
+                CweId = v.CweId ?? ComplianceMapping.GetCweId(v.Name),
+                CvssScore = v.CvssScore
             }).OrderByDescending(v => v.SeverityScore)
         };
     }

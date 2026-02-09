@@ -44,4 +44,9 @@ public record VulnerabilityReportDto
     public string Url { get; init; } = string.Empty;
     public string Evidence { get; init; } = string.Empty;
     public string Remediation { get; init; } = string.Empty;
+    
+    // Compliance Mapping
+    public string? OwaspCategory { get; init; }
+    public string? CweId { get; init; }
+    public string? CvssScore { get; init; }
 }

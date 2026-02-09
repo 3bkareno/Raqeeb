@@ -1,14 +1,28 @@
 using System.Text;
 using System.Text.Json;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using Raqeeb.Application.Reports;
 
 namespace Raqeeb.Infrastructure.Reporting;
 
 /// <summary>
-/// Generates scan reports in HTML and JSON formats.
+/// Generates scan reports in HTML, JSON, PDF, and Excel formats.
 /// </summary>
 public class ReportGenerator : IReportGenerator
 {
+    static ReportGenerator()
+    {
+        // Set QuestPDF license
+        QuestPDF.Settings.License = LicenseType.Community;
+        
+        // Set EPPlus license (for non-commercial use)
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+    }
+    
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -25,6 +39,35 @@ public class ReportGenerator : IReportGenerator
     {
         var html = GenerateHtml(report);
         return Task.FromResult(html);
+    }
+
+    public Task<byte[]> GeneratePdfReportAsync(ScanReportDto report)
+    {
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(2, Unit.Centimetre);
+                page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
+
+                page.Header().Element(c => ComposeHeader(c, report));
+                page.Content().Element(c => ComposeContent(c, report));
+                page.Footer().Element(c => ComposeFooter(c, report));
+            });
+        });
+
+        return Task.FromResult(document.GeneratePdf());
+    }
+
+    public Task<byte[]> GenerateExcelReportAsync(ScanReportDto report)
+    {
+        using var package = new ExcelPackage();
+        var worksheet = package.Workbook.Worksheets.Add("Scan Report");
+
+        ComposeExcelReport(worksheet, report);
+
+        return Task.FromResult(package.GetAsByteArray());
     }
 
     private static string GenerateHtml(ScanReportDto report)
@@ -113,6 +156,18 @@ public class ReportGenerator : IReportGenerator
                 sb.AppendLine($"      <p class=\"description\">{vuln.Description}</p>");
                 sb.AppendLine($"      <div class=\"vuln-details\">");
                 sb.AppendLine($"        <div class=\"detail\"><strong>URL:</strong> <code>{vuln.Url}</code></div>");
+                if (!string.IsNullOrEmpty(vuln.OwaspCategory))
+                {
+                    sb.AppendLine($"        <div class=\"detail\"><strong>OWASP:</strong> <span class=\"compliance-tag\">{vuln.OwaspCategory}</span></div>");
+                }
+                if (!string.IsNullOrEmpty(vuln.CweId))
+                {
+                    sb.AppendLine($"        <div class=\"detail\"><strong>CWE:</strong> <span class=\"compliance-tag\">{vuln.CweId}</span></div>");
+                }
+                if (!string.IsNullOrEmpty(vuln.CvssScore))
+                {
+                    sb.AppendLine($"        <div class=\"detail\"><strong>CVSS Score:</strong> {vuln.CvssScore}</div>");
+                }
                 if (!string.IsNullOrEmpty(vuln.Evidence))
                 {
                     sb.AppendLine($"        <div class=\"detail\"><strong>Evidence:</strong><pre>{vuln.Evidence}</pre></div>");
@@ -253,6 +308,15 @@ public class ReportGenerator : IReportGenerator
         .severity-low .severity-badge { background: #3b82f6; }
         .severity-info .severity-badge { background: #64748b; }
         .description { color: #475569; margin-bottom: 1rem; }
+        .compliance-tag {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            background: #dbeafe;
+            color: #1e40af;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
         .vuln-details { font-size: 0.875rem; }
         .detail { margin-bottom: 0.5rem; }
         .detail code { background: #1e293b; color: #e2e8f0; padding: 0.25rem 0.5rem; border-radius: 4px; }
@@ -285,5 +349,336 @@ public class ReportGenerator : IReportGenerator
         if (duration.TotalMinutes >= 1)
             return $"{(int)duration.TotalMinutes}m {duration.Seconds}s";
         return $"{(int)duration.TotalSeconds}s";
+    }
+
+    // PDF Generation Helpers
+    private static void ComposeHeader(IContainer container, ScanReportDto report)
+    {
+        container.Row(row =>
+        {
+            row.RelativeItem().Column(column =>
+            {
+                column.Item().Text("👁️ Raqeeb").FontSize(20).SemiBold();
+                column.Item().Text("Vulnerability Scan Report").FontSize(16).Bold();
+                column.Item().Text($"Generated: {report.GeneratedAt:MMMM dd, yyyy HH:mm:ss} UTC").FontSize(10).FontColor(Colors.Grey.Medium);
+            });
+        });
+    }
+
+    private static void ComposeContent(IContainer container, ScanReportDto report)
+    {
+        container.PaddingVertical(10).Column(column =>
+        {
+            column.Spacing(15);
+
+            // Executive Summary
+            column.Item().Element(c => ComposeSummarySection(c, report));
+
+            // Risk Assessment
+            column.Item().Element(c => ComposeRiskSection(c, report));
+
+            // Vulnerabilities
+            column.Item().Element(c => ComposeVulnerabilitiesSection(c, report));
+        });
+    }
+
+    private static void ComposeSummarySection(IContainer container, ScanReportDto report)
+    {
+        container.Column(column =>
+        {
+            column.Item().Text("Executive Summary").FontSize(14).Bold();
+            column.Item().PaddingTop(5).Table(table =>
+            {
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.RelativeColumn(1);
+                    columns.RelativeColumn(2);
+                });
+
+                table.Cell().BorderBottom(1).Padding(5).Text("Target:").SemiBold();
+                table.Cell().BorderBottom(1).Padding(5).Text(report.TargetUrl);
+
+                table.Cell().BorderBottom(1).Padding(5).Text("Profile:").SemiBold();
+                table.Cell().BorderBottom(1).Padding(5).Text(report.ProfileName);
+
+                table.Cell().BorderBottom(1).Padding(5).Text("Status:").SemiBold();
+                table.Cell().BorderBottom(1).Padding(5).Text(report.Status);
+
+                table.Cell().Padding(5).Text("Duration:").SemiBold();
+                table.Cell().Padding(5).Text(FormatDuration(report.Duration));
+            });
+        });
+    }
+
+    private static void ComposeRiskSection(IContainer container, ScanReportDto report)
+    {
+        container.Column(column =>
+        {
+            column.Item().Text("Risk Assessment").FontSize(14).Bold();
+            column.Item().PaddingTop(5).Row(row =>
+            {
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().Text($"Risk Score: {report.RiskScore:F0}/100").FontSize(12).SemiBold();
+                    col.Item().Text($"Risk Level: {report.RiskLevel}").FontSize(12)
+                        .FontColor(report.RiskLevel switch
+                        {
+                            "Critical" => Colors.Red.Darken2,
+                            "High" => Colors.Orange.Darken2,
+                            "Medium" => Colors.Yellow.Darken2,
+                            "Low" => Colors.Blue.Medium,
+                            _ => Colors.Green.Medium
+                        });
+                });
+
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().Text($"Critical: {report.CriticalCount}").FontColor(Colors.Red.Darken2);
+                    col.Item().Text($"High: {report.HighCount}").FontColor(Colors.Orange.Darken2);
+                    col.Item().Text($"Medium: {report.MediumCount}").FontColor(Colors.Yellow.Darken2);
+                    col.Item().Text($"Low: {report.LowCount}").FontColor(Colors.Blue.Medium);
+                    col.Item().Text($"Info: {report.InfoCount}").FontColor(Colors.Grey.Medium);
+                });
+            });
+        });
+    }
+
+    private static void ComposeVulnerabilitiesSection(IContainer container, ScanReportDto report)
+    {
+        container.Column(column =>
+        {
+            column.Item().Text($"Vulnerabilities ({report.TotalVulnerabilities})").FontSize(14).Bold();
+
+            if (report.TotalVulnerabilities == 0)
+            {
+                column.Item().PaddingTop(10).Text("✓ No vulnerabilities were detected during this scan.")
+                    .FontColor(Colors.Green.Medium);
+            }
+            else
+            {
+                foreach (var vuln in report.Vulnerabilities)
+                {
+                    column.Item().PaddingTop(10).BorderLeft(3)
+                        .BorderColor(vuln.Severity switch
+                        {
+                            "Critical" => Colors.Red.Darken2,
+                            "High" => Colors.Orange.Darken2,
+                            "Medium" => Colors.Yellow.Darken2,
+                            "Low" => Colors.Blue.Medium,
+                            _ => Colors.Grey.Medium
+                        })
+                        .Background(Colors.Grey.Lighten4)
+                        .Padding(8)
+                        .Column(vulnColumn =>
+                        {
+                            vulnColumn.Item().Row(row =>
+                            {
+                                row.AutoItem().PaddingRight(5).Text($"[{vuln.Severity}]")
+                                    .FontSize(9).SemiBold()
+                                    .FontColor(vuln.Severity switch
+                                    {
+                                        "Critical" => Colors.Red.Darken2,
+                                        "High" => Colors.Orange.Darken2,
+                                        "Medium" => Colors.Yellow.Darken2,
+                                        "Low" => Colors.Blue.Medium,
+                                        _ => Colors.Grey.Medium
+                                    });
+                                row.RelativeItem().Text(vuln.Name).FontSize(11).SemiBold();
+                            });
+
+                            vulnColumn.Item().PaddingTop(3).Text(vuln.Description).FontSize(9);
+
+                            vulnColumn.Item().PaddingTop(3).Text($"URL: {vuln.Url}").FontSize(8).Italic();
+
+                            if (!string.IsNullOrEmpty(vuln.OwaspCategory))
+                            {
+                                vulnColumn.Item().PaddingTop(2).Text($"OWASP: {vuln.OwaspCategory}").FontSize(8).FontColor(Colors.Blue.Darken1);
+                            }
+
+                            if (!string.IsNullOrEmpty(vuln.CweId))
+                            {
+                                vulnColumn.Item().Text($"CWE: {vuln.CweId}").FontSize(8).FontColor(Colors.Blue.Darken1);
+                            }
+
+                            if (!string.IsNullOrEmpty(vuln.Remediation))
+                            {
+                                vulnColumn.Item().PaddingTop(3).Background(Colors.Green.Lighten4)
+                                    .Padding(5).Text($"Remediation: {vuln.Remediation}")
+                                    .FontSize(8).FontColor(Colors.Green.Darken2);
+                            }
+                        });
+                }
+            }
+        });
+    }
+
+    private static void ComposeFooter(IContainer container, ScanReportDto report)
+    {
+        container.AlignCenter().Text(text =>
+        {
+            text.Span($"Report generated by {report.GeneratedBy} v{report.Version} | ");
+            text.Span($"Scan ID: {report.ScanId}");
+            text.Span($" | Page ").FontSize(9);
+            text.CurrentPageNumber().FontSize(9);
+        });
+    }
+
+    // Excel Generation Helpers
+    private static void ComposeExcelReport(ExcelWorksheet worksheet, ScanReportDto report)
+    {
+        // Set column widths
+        worksheet.Column(1).Width = 20;
+        worksheet.Column(2).Width = 40;
+        worksheet.Column(3).Width = 15;
+        worksheet.Column(4).Width = 50;
+        worksheet.Column(5).Width = 30;
+        worksheet.Column(6).Width = 20;
+
+        int row = 1;
+
+        // Header
+        worksheet.Cells[row, 1].Value = "Raqeeb Vulnerability Scan Report";
+        worksheet.Cells[row, 1, row, 6].Merge = true;
+        worksheet.Cells[row, 1].Style.Font.Size = 16;
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        worksheet.Cells[row, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+        row += 2;
+
+        // Summary Section
+        worksheet.Cells[row, 1].Value = "Target:";
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        worksheet.Cells[row, 2].Value = report.TargetUrl;
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Profile:";
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        worksheet.Cells[row, 2].Value = report.ProfileName;
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Status:";
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        worksheet.Cells[row, 2].Value = report.Status;
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Duration:";
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        worksheet.Cells[row, 2].Value = FormatDuration(report.Duration);
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Generated:";
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        worksheet.Cells[row, 2].Value = report.GeneratedAt.ToString("MMMM dd, yyyy HH:mm:ss");
+        row += 2;
+
+        // Risk Assessment
+        worksheet.Cells[row, 1].Value = "Risk Assessment";
+        worksheet.Cells[row, 1].Style.Font.Size = 14;
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Risk Score:";
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        worksheet.Cells[row, 2].Value = $"{report.RiskScore:F0}/100";
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Risk Level:";
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        worksheet.Cells[row, 2].Value = report.RiskLevel;
+        worksheet.Cells[row, 2].Style.Font.Color.SetColor(report.RiskLevel switch
+        {
+            "Critical" => System.Drawing.Color.DarkRed,
+            "High" => System.Drawing.Color.DarkOrange,
+            "Medium" => System.Drawing.Color.DarkGoldenrod,
+            "Low" => System.Drawing.Color.Blue,
+            _ => System.Drawing.Color.Green
+        });
+        row += 2;
+
+        // Vulnerability Counts
+        worksheet.Cells[row, 1].Value = "Vulnerability Summary";
+        worksheet.Cells[row, 1].Style.Font.Size = 14;
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Critical:";
+        worksheet.Cells[row, 2].Value = report.CriticalCount;
+        worksheet.Cells[row, 2].Style.Font.Color.SetColor(System.Drawing.Color.DarkRed);
+        row++;
+
+        worksheet.Cells[row, 1].Value = "High:";
+        worksheet.Cells[row, 2].Value = report.HighCount;
+        worksheet.Cells[row, 2].Style.Font.Color.SetColor(System.Drawing.Color.DarkOrange);
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Medium:";
+        worksheet.Cells[row, 2].Value = report.MediumCount;
+        worksheet.Cells[row, 2].Style.Font.Color.SetColor(System.Drawing.Color.DarkGoldenrod);
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Low:";
+        worksheet.Cells[row, 2].Value = report.LowCount;
+        worksheet.Cells[row, 2].Style.Font.Color.SetColor(System.Drawing.Color.Blue);
+        row++;
+
+        worksheet.Cells[row, 1].Value = "Info:";
+        worksheet.Cells[row, 2].Value = report.InfoCount;
+        row += 2;
+
+        // Vulnerabilities Table
+        worksheet.Cells[row, 1].Value = "Detailed Vulnerabilities";
+        worksheet.Cells[row, 1].Style.Font.Size = 14;
+        worksheet.Cells[row, 1].Style.Font.Bold = true;
+        row++;
+
+        if (report.TotalVulnerabilities == 0)
+        {
+            worksheet.Cells[row, 1].Value = "✓ No vulnerabilities were detected during this scan.";
+            worksheet.Cells[row, 1].Style.Font.Color.SetColor(System.Drawing.Color.Green);
+        }
+        else
+        {
+            // Table Headers
+            worksheet.Cells[row, 1].Value = "Severity";
+            worksheet.Cells[row, 2].Value = "Name";
+            worksheet.Cells[row, 3].Value = "OWASP";
+            worksheet.Cells[row, 4].Value = "Description";
+            worksheet.Cells[row, 5].Value = "URL";
+            worksheet.Cells[row, 6].Value = "CWE";
+
+            using (var range = worksheet.Cells[row, 1, row, 6])
+            {
+                range.Style.Font.Bold = true;
+                range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
+                range.Style.Border.Bottom.Style = ExcelBorderStyle.Thick;
+            }
+            row++;
+
+            // Data Rows
+            foreach (var vuln in report.Vulnerabilities)
+            {
+                worksheet.Cells[row, 1].Value = vuln.Severity;
+                worksheet.Cells[row, 1].Style.Font.Color.SetColor(vuln.Severity switch
+                {
+                    "Critical" => System.Drawing.Color.DarkRed,
+                    "High" => System.Drawing.Color.DarkOrange,
+                    "Medium" => System.Drawing.Color.DarkGoldenrod,
+                    "Low" => System.Drawing.Color.Blue,
+                    _ => System.Drawing.Color.Gray
+                });
+
+                worksheet.Cells[row, 2].Value = vuln.Name;
+                worksheet.Cells[row, 3].Value = vuln.OwaspCategory ?? "N/A";
+                worksheet.Cells[row, 4].Value = vuln.Description;
+                worksheet.Cells[row, 5].Value = vuln.Url;
+                worksheet.Cells[row, 6].Value = vuln.CweId ?? "N/A";
+
+                worksheet.Row(row).Style.WrapText = true;
+                row++;
+            }
+
+            // Auto-fit rows
+            worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+        }
     }
 }
