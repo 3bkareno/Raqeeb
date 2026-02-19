@@ -480,6 +480,8 @@ Raqeeb/
 - [x] Scheduled scans working
 - [x] Email notifications sending
 - [x] Background job processing
+- [x] Schedule calendar view UI
+- [x] In-app notification center
 
 ### Milestone 4: Professional Reports (Week 18) ✅ COMPLETE
 - [x] PDF report generation

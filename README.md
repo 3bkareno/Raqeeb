@@ -16,7 +16,7 @@ Raqeeb provides **safe, authorized security testing** capabilities, helping deve
 
 ## 📊 Project Status
 
-**Current Phase: Phase 4 - Reporting & Export** ✅ (100% Complete)
+**Current Phase: Phase 4 - Reporting & Export** ✅ (Phases 1-4 Complete)
 
 | Phase | Status | Progress |
 |-------|--------|----------|
@@ -64,6 +64,8 @@ Raqeeb provides **safe, authorized security testing** capabilities, helping deve
 - ✅ Webhook notifications
 - ✅ Notification preferences system
 - ✅ Schedule management (CRUD operations)
+- ✅ Schedule calendar view UI
+- ✅ In-app notification center
 - ✅ Automatic scan execution from schedules
 - ✅ Hangfire dashboard for job monitoring
 
@@ -238,17 +240,12 @@ Raqeeb follows **Clean Architecture** with clear layer separation:
 
 ## 🚧 Coming Soon
 
-### Phase 4: Reporting & Export (Next)
-- 📄 PDF report generation
-- 📊 Executive summary reports
-- 📈 Trend analysis
-- 🎨 Customizable report templates
-- 📧 Email reports
-
-### Phase 5: Localization
+### Phase 5: Localization & UI/UX
 - 🌍 Full Arabic (العربية) translation
 - 🌐 RTL (Right-to-Left) support
 - 🗣️ Multi-language support
+- 📱 Mobile responsiveness improvements
+- ♿ WCAG accessibility compliance
 
 ---
 
@@ -261,6 +258,10 @@ Raqeeb follows **Clean Architecture** with clear layer separation:
 | **API** | ASP.NET Core Web API |
 | **Database** | SQL Server, Entity Framework Core 10 |
 | **Authentication** | ASP.NET Core Identity |
+| **Background Jobs** | Hangfire |
+| **Email** | MailKit (SMTP) |
+| **PDF Reports** | QuestPDF |
+| **Excel Export** | EPPlus |
 | **Logging** | Serilog |
 | **Testing** | xUnit, FluentAssertions, Moq, Coverlet |
 | **Architecture** | Clean Architecture, CQRS (MediatR) |
@@ -437,10 +438,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 🐛 **Report Issues:** [GitHub Issues](https://github.com/3bkareno/Raqeeb/issues)
 - 💬 **Discussions:** [GitHub Discussions](https://github.com/3bkareno/Raqeeb/discussions)
 - 📧 **Email:** support@raqeeb.io
-
----
-
-**Built with ❤️ for the security community**
 
 ---
 
