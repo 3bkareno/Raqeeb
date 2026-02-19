@@ -135,7 +135,8 @@ else
         }
         else
         {
-            notifications = all.OrderByDescending(n => n.CreatedAt).ToList();
+            // If user context is unavailable, show no notifications rather than all
+            notifications = new List<Notification>();
         }
 
         isLoading = false;

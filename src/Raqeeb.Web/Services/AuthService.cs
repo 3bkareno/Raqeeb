@@ -113,7 +113,9 @@ public class AuthService : IAuthService
 
     public async Task LogoutAsync()
     {
-        await _auditService.LogAsync(AuditActions.Logout, "User logged out");
+        var httpContext = _signInManager.Context;
+        var userName = httpContext?.User?.Identity?.Name ?? "Unknown";
+        await _auditService.LogAsync(AuditActions.Logout, $"User {userName} logged out");
         await _signInManager.SignOutAsync();
     }
 

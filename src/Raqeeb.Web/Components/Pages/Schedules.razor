@@ -346,7 +346,7 @@ else
 
     private List<Schedule> GetSchedulesForDay(DateTime day)
     {
-        return schedules.Where(s => s.IsEnabled && s.NextRunAt?.Date == day.Date).ToList();
+        return schedules.Where(s => s.NextRunAt?.Date == day.Date).ToList();
     }
 
     public class ScheduleFormModel
