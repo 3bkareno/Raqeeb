@@ -1,5 +1,6 @@
 @page "/scan/{ScanId:guid}"
 @rendermode InteractiveServer
+@attribute [Authorize]
 @implements IDisposable
 @inject IRepository<ScanJob> ScanJobRepository
 @inject IRepository<Vulnerability> VulnerabilityRepository
