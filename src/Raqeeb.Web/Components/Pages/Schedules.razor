@@ -1,0 +1,368 @@
+@page "/schedules"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject IRepository<Schedule> ScheduleRepository
+@inject IRepository<Target> TargetRepository
+@inject IRepository<ScanProfile> ProfileRepository
+@inject IMediator Mediator
+@inject Raqeeb.Web.Services.ILocalizationService L
+
+<PageTitle>Schedules - @L["AppName"]</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-calendar-check text-primary me-2"></i>Scheduled Scans</h1>
+    <div>
+        <button class="btn btn-outline-secondary me-2 @(showCalendar ? "" : "active")" @onclick="() => showCalendar = false">
+            <i class="bi bi-list-ul me-1"></i>List
+        </button>
+        <button class="btn btn-outline-secondary me-2 @(showCalendar ? "active" : "")" @onclick="() => showCalendar = true">
+            <i class="bi bi-calendar3 me-1"></i>Calendar
+        </button>
+        <button class="btn btn-primary" @onclick="ShowAddModal">
+            <i class="bi bi-plus-lg me-1"></i>New Schedule
+        </button>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (showCalendar)
+{
+    <!-- Calendar View -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="PreviousMonth">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <h5 class="mb-0">@calendarDate.ToString("MMMM yyyy")</h5>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="NextMonth">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-bordered mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-center p-2">Sun</th>
+                        <th class="text-center p-2">Mon</th>
+                        <th class="text-center p-2">Tue</th>
+                        <th class="text-center p-2">Wed</th>
+                        <th class="text-center p-2">Thu</th>
+                        <th class="text-center p-2">Fri</th>
+                        <th class="text-center p-2">Sat</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var week in GetCalendarWeeks())
+                    {
+                        <tr>
+                            @foreach (var day in week)
+                            {
+                                var daySchedules = GetSchedulesForDay(day);
+                                <td class="p-1 @(day.Month != calendarDate.Month ? "text-muted bg-light" : "") @(day.Date == DateTime.Today ? "border-primary" : "")"
+                                    style="height: 100px; vertical-align: top; min-width: 100px;">
+                                    <div class="fw-bold small @(day.Date == DateTime.Today ? "text-primary" : "")">@day.Day</div>
+                                    @foreach (var s in daySchedules.Take(3))
+                                    {
+                                        <div class="badge @(s.IsEnabled ? "bg-primary" : "bg-secondary") text-truncate d-block mb-1" style="max-width: 100%; font-size: 0.65rem;">
+                                            @s.Name
+                                        </div>
+                                    }
+                                    @if (daySchedules.Count > 3)
+                                    {
+                                        <small class="text-muted">+@(daySchedules.Count - 3) more</small>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else if (!schedules.Any())
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-calendar-check text-muted" style="font-size: 3rem;"></i>
+            <h5 class="mt-3">No Schedules</h5>
+            <p class="text-muted">Create a schedule to automate your scans</p>
+            <button class="btn btn-primary" @onclick="ShowAddModal">
+                <i class="bi bi-plus-lg me-1"></i>New Schedule
+            </button>
+        </div>
+    </div>
+}
+else
+{
+    <!-- List View -->
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Target</th>
+                        <th>CRON Expression</th>
+                        <th>Status</th>
+                        <th>Last Run</th>
+                        <th>Next Run</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var schedule in schedules)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@schedule.Name</strong>
+                                @if (!string.IsNullOrEmpty(schedule.Description))
+                                {
+                                    <br /><small class="text-muted">@schedule.Description</small>
+                                }
+                            </td>
+                            <td><code>@(schedule.Target?.Url ?? "N/A")</code></td>
+                            <td><code>@schedule.CronExpression</code></td>
+                            <td>
+                                @if (schedule.IsEnabled)
+                                {
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary"><i class="bi bi-pause-circle me-1"></i>Paused</span>
+                                }
+                            </td>
+                            <td>@(schedule.LastRunAt?.ToString("MMM dd, yyyy HH:mm") ?? "Never")</td>
+                            <td>@(schedule.NextRunAt?.ToString("MMM dd, yyyy HH:mm") ?? "N/A")</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" @onclick="() => ToggleSchedule(schedule)" title="@(schedule.IsEnabled ? "Pause" : "Enable")">
+                                        <i class="bi @(schedule.IsEnabled ? "bi-pause" : "bi-play")"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" @onclick="() => DeleteSchedule(schedule)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Schedule</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <EditForm Model="newSchedule" OnValidSubmit="AddSchedule">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Schedule Name</label>
+                            <InputText @bind-Value="newSchedule.Name" class="form-control" placeholder="e.g., Weekly Security Scan" />
+                            <ValidationMessage For="() => newSchedule.Name" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <InputText @bind-Value="newSchedule.Description" class="form-control" placeholder="Optional description" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Target</label>
+                            <InputSelect @bind-Value="newSchedule.TargetId" class="form-select">
+                                <option value="">Select a target...</option>
+                                @foreach (var target in targets)
+                                {
+                                    <option value="@target.Id">@target.Url</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => newSchedule.TargetId" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Scan Profile</label>
+                            <InputSelect @bind-Value="newSchedule.ScanProfileId" class="form-select">
+                                <option value="">Select a profile...</option>
+                                @foreach (var profile in profiles)
+                                {
+                                    <option value="@profile.Id">@profile.Name</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => newSchedule.ScanProfileId" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">CRON Expression</label>
+                            <InputText @bind-Value="newSchedule.CronExpression" class="form-control" placeholder="0 0 * * 1 (every Monday)" />
+                            <ValidationMessage For="() => newSchedule.CronExpression" />
+                            <small class="text-muted">
+                                Examples: <code>0 0 * * 1</code> (weekly), <code>0 0 * * *</code> (daily), <code>0 */6 * * *</code> (every 6 hours)
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Create Schedule
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool showModal;
+    private bool isSaving;
+    private bool showCalendar;
+    private DateTime calendarDate = DateTime.Today;
+    private List<Schedule> schedules = [];
+    private List<Target> targets = [];
+    private List<ScanProfile> profiles = [];
+
+    private ScheduleFormModel newSchedule = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        var scheduleResult = await ScheduleRepository.GetAllAsync();
+        schedules = scheduleResult.OrderByDescending(s => s.CreatedAt).ToList();
+
+        var targetResult = await TargetRepository.GetAllAsync();
+        targets = targetResult.ToList();
+
+        var profileResult = await ProfileRepository.GetAllAsync();
+        profiles = profileResult.ToList();
+
+        isLoading = false;
+    }
+
+    private void ShowAddModal()
+    {
+        newSchedule = new ScheduleFormModel();
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private async Task AddSchedule()
+    {
+        isSaving = true;
+        try
+        {
+            var command = new Raqeeb.Application.Schedules.Commands.CreateScheduleCommand
+            {
+                Name = newSchedule.Name,
+                Description = newSchedule.Description,
+                TargetId = newSchedule.TargetId,
+                ScanProfileId = newSchedule.ScanProfileId,
+                CronExpression = newSchedule.CronExpression,
+                IsEnabled = true
+            };
+
+            await Mediator.Send(command);
+            await LoadDataAsync();
+            showModal = false;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ToggleSchedule(Schedule schedule)
+    {
+        var command = new Raqeeb.Application.Schedules.Commands.UpdateScheduleCommand
+        {
+            Id = schedule.Id,
+            Name = schedule.Name,
+            Description = schedule.Description,
+            CronExpression = schedule.CronExpression,
+            IsEnabled = !schedule.IsEnabled
+        };
+
+        await Mediator.Send(command);
+        await LoadDataAsync();
+    }
+
+    private async Task DeleteSchedule(Schedule schedule)
+    {
+        var command = new Raqeeb.Application.Schedules.Commands.DeleteScheduleCommand { Id = schedule.Id };
+        await Mediator.Send(command);
+        await LoadDataAsync();
+    }
+
+    // Calendar helpers
+    private void PreviousMonth() => calendarDate = calendarDate.AddMonths(-1);
+    private void NextMonth() => calendarDate = calendarDate.AddMonths(1);
+
+    private List<List<DateTime>> GetCalendarWeeks()
+    {
+        var weeks = new List<List<DateTime>>();
+        var firstDay = new DateTime(calendarDate.Year, calendarDate.Month, 1);
+        var startDate = firstDay.AddDays(-(int)firstDay.DayOfWeek);
+
+        for (int week = 0; week < 6; week++)
+        {
+            var days = new List<DateTime>();
+            for (int day = 0; day < 7; day++)
+            {
+                days.Add(startDate.AddDays(week * 7 + day));
+            }
+            // Only add the week if it contains days from the current month
+            if (days.Any(d => d.Month == calendarDate.Month))
+            {
+                weeks.Add(days);
+            }
+        }
+        return weeks;
+    }
+
+    private List<Schedule> GetSchedulesForDay(DateTime day)
+    {
+        return schedules.Where(s => s.IsEnabled && s.NextRunAt?.Date == day.Date).ToList();
+    }
+
+    public class ScheduleFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Name is required")]
+        public string Name { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Target is required")]
+        public Guid TargetId { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Scan profile is required")]
+        public Guid ScanProfileId { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "CRON expression is required")]
+        public string CronExpression { get; set; } = string.Empty;
+    }
+}

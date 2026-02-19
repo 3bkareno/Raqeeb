@@ -1,0 +1,183 @@
+@page "/notifications"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject Raqeeb.Web.Services.ILocalizationService L
+@inject INotificationService NotificationService
+@inject IRepository<Notification> NotificationRepository
+@using System.Security.Claims
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Notifications - @L["AppName"]</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-bell text-primary me-2"></i>Notifications</h1>
+    @if (notifications.Any(n => !n.IsRead))
+    {
+        <button class="btn btn-outline-primary" @onclick="MarkAllAsRead">
+            <i class="bi bi-check2-all me-1"></i>Mark All Read
+        </button>
+    }
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (!notifications.Any())
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-bell-slash text-muted" style="font-size: 3rem;"></i>
+            <h5 class="mt-3">No Notifications</h5>
+            <p class="text-muted">You're all caught up! Notifications will appear here when scans complete or vulnerabilities are found.</p>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Filter tabs -->
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(currentFilter == "all" ? "active" : "")" @onclick='() => currentFilter = "all"'>
+                All <span class="badge bg-secondary ms-1">@notifications.Count</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(currentFilter == "unread" ? "active" : "")" @onclick='() => currentFilter = "unread"'>
+                Unread <span class="badge bg-primary ms-1">@notifications.Count(n => !n.IsRead)</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(currentFilter == "critical" ? "active" : "")" @onclick='() => currentFilter = "critical"'>
+                Critical <span class="badge bg-danger ms-1">@notifications.Count(n => n.Type == NotificationType.CriticalVulnerabilityFound)</span>
+            </button>
+        </li>
+    </ul>
+
+    <div class="list-group">
+        @foreach (var notification in GetFilteredNotifications())
+        {
+            <div class="list-group-item list-group-item-action @(!notification.IsRead ? "border-start border-primary border-3" : "")" style="cursor: pointer;" @onclick="() => MarkAsRead(notification)">
+                <div class="d-flex w-100 justify-content-between align-items-start">
+                    <div class="d-flex align-items-start">
+                        <div class="me-3 mt-1">
+                            @switch (notification.Type)
+                            {
+                                case NotificationType.ScanCompleted:
+                                    <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                                    break;
+                                case NotificationType.ScanFailed:
+                                    <i class="bi bi-x-circle-fill text-danger fs-4"></i>
+                                    break;
+                                case NotificationType.CriticalVulnerabilityFound:
+                                    <i class="bi bi-exclamation-triangle-fill text-danger fs-4"></i>
+                                    break;
+                                case NotificationType.HighSeverityVulnerabilityFound:
+                                    <i class="bi bi-exclamation-circle-fill text-warning fs-4"></i>
+                                    break;
+                                case NotificationType.ScheduledScanStarted:
+                                    <i class="bi bi-play-circle-fill text-info fs-4"></i>
+                                    break;
+                                default:
+                                    <i class="bi bi-info-circle-fill text-primary fs-4"></i>
+                                    break;
+                            }
+                        </div>
+                        <div>
+                            <h6 class="mb-1 @(!notification.IsRead ? "fw-bold" : "")">@notification.Title</h6>
+                            <p class="mb-1 text-muted small">@notification.Message</p>
+                            @if (notification.RelatedScanJobId.HasValue)
+                            {
+                                <a href="/scan/@notification.RelatedScanJobId" class="small text-decoration-none" @onclick:stopPropagation="true">
+                                    <i class="bi bi-arrow-right me-1"></i>View Scan
+                                </a>
+                            }
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">@FormatTimeAgo(notification.CreatedAt)</small>
+                        @if (!notification.IsRead)
+                        {
+                            <br /><span class="badge bg-primary">New</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private string currentFilter = "all";
+    private List<Notification> notifications = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadNotificationsAsync();
+    }
+
+    private async Task LoadNotificationsAsync()
+    {
+        var all = await NotificationRepository.GetAllAsync();
+        var userId = HttpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            notifications = all
+                .Where(n => n.RecipientUserId == userId)
+                .OrderByDescending(n => n.CreatedAt)
+                .ToList();
+        }
+        else
+        {
+            notifications = all.OrderByDescending(n => n.CreatedAt).ToList();
+        }
+
+        isLoading = false;
+    }
+
+    private List<Notification> GetFilteredNotifications()
+    {
+        return currentFilter switch
+        {
+            "unread" => notifications.Where(n => !n.IsRead).ToList(),
+            "critical" => notifications.Where(n => n.Type == NotificationType.CriticalVulnerabilityFound).ToList(),
+            _ => notifications
+        };
+    }
+
+    private async Task MarkAsRead(Notification notification)
+    {
+        if (!notification.IsRead)
+        {
+            await NotificationService.MarkAsReadAsync(notification.Id);
+            notification.IsRead = true;
+            notification.ReadAt = DateTime.UtcNow;
+        }
+    }
+
+    private async Task MarkAllAsRead()
+    {
+        foreach (var notification in notifications.Where(n => !n.IsRead))
+        {
+            await NotificationService.MarkAsReadAsync(notification.Id);
+            notification.IsRead = true;
+            notification.ReadAt = DateTime.UtcNow;
+        }
+    }
+
+    private static string FormatTimeAgo(DateTime dateTime)
+    {
+        var span = DateTime.UtcNow - dateTime;
+        if (span.TotalMinutes < 1) return "Just now";
+        if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes}m ago";
+        if (span.TotalHours < 24) return $"{(int)span.TotalHours}h ago";
+        if (span.TotalDays < 7) return $"{(int)span.TotalDays}d ago";
+        return dateTime.ToString("MMM dd, yyyy");
+    }
+}
