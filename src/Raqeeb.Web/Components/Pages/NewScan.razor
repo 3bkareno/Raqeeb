@@ -1,5 +1,6 @@
 @page "/new-scan"
 @rendermode InteractiveServer
+@attribute [Authorize]
 @inject IRepository<Target> TargetRepository
 @inject IRepository<ScanProfile> ProfileRepository
 @inject IMediator Mediator
