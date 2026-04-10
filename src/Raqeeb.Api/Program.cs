@@ -46,6 +46,8 @@ builder.Services.AddTransient<IScannerModule, SessionSecurityScanner>();
 builder.Services.AddTransient<IScannerModule, DirectoryBruteforceScanner>();
 builder.Services.AddTransient<IScannerModule, SubdomainEnumerationScanner>();
 builder.Services.AddTransient<IScannerModule, PortScanner>();
+builder.Services.AddTransient<IScannerModule, CommandInjectionScanner>();
+builder.Services.AddTransient<IScannerModule, XxeScanner>();
 
 builder.Services.AddSingleton<IReportGenerator, ReportGenerator>();
 
