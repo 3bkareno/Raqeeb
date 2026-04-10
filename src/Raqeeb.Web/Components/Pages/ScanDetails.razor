@@ -63,6 +63,11 @@ else
                             </a>
                         </li>
                         <li>
+                            <a class="dropdown-item" href="/api/reports/@scan.Id/download/pdf" target="_blank">
+                                <i class="bi bi-filetype-pdf me-2"></i>Download PDF
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item" href="/api/reports/@scan.Id/download/json" target="_blank">
                                 <i class="bi bi-filetype-json me-2"></i>Download JSON
                             </a>
@@ -295,10 +300,11 @@ else
 
     private async Task LoadScanAsync()
     {
-        scan = await ScanJobRepository.GetByIdAsync(ScanId);
+        // Always bypass the EF change tracker so we see status updates
+        // from the background ScanEngine process
+        scan = await ScanJobRepository.GetByIdFreshAsync(ScanId);
         if (scan != null)
         {
-            // Load navigation properties if not loaded
             if (scan.TargetId != Guid.Empty && scan.Target == null)
             {
                 scan.Target = await TargetRepository.GetByIdAsync(scan.TargetId);
@@ -312,9 +318,6 @@ else
             vulnerabilities = vulns.ToList();
         }
         isLoading = false;
-        
-        // Force UI update
-        await InvokeAsync(StateHasChanged);
     }
 
     private void StartAutoRefresh()

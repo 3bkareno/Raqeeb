@@ -7,12 +7,14 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Raqeeb.Application.Scans.Commands;
+using Raqeeb.Application.Reports;
 using Raqeeb.Domain.Constants;
 using Raqeeb.Domain.Entities;
 using Raqeeb.Domain.Interfaces;
 using Raqeeb.Infrastructure.Jobs;
 using Raqeeb.Infrastructure.Notifications;
 using Raqeeb.Infrastructure.Persistence;
+using Raqeeb.Infrastructure.Reporting;
 using Raqeeb.Infrastructure.Scanning;
 using Raqeeb.Infrastructure.Scanning.Modules;
 using Raqeeb.Web.Components;
@@ -145,6 +147,7 @@ try
     builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
     builder.Services.AddSingleton<IScanEngine, ScanEngine>();
     builder.Services.AddSingleton<IHttpCrawler, HttpCrawler>();
+    builder.Services.AddSingleton<IReportGenerator, ReportGenerator>();
     
     // Scanner Modules - Register all available scanners
     builder.Services.AddTransient<IScannerModule, HeaderSecurityScanner>();
@@ -272,6 +275,7 @@ try
 
     // Map auth endpoints (for login/logout via HTTP POST)
     app.MapAuthEndpoints();
+    app.MapReportEndpoints();
 
     app.MapStaticAssets();
     app.MapRazorComponents<App>()

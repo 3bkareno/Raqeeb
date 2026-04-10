@@ -73,274 +73,187 @@ public class ReportGenerator : IReportGenerator
     private static string GenerateHtml(ScanReportDto report)
     {
         var sb = new StringBuilder();
-        
-        sb.AppendLine("<!DOCTYPE html>");
-        sb.AppendLine("<html lang=\"en\">");
-        sb.AppendLine("<head>");
-        sb.AppendLine("  <meta charset=\"UTF-8\">");
-        sb.AppendLine("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
-        sb.AppendLine($"  <title>Scan Report - {report.TargetUrl}</title>");
-        sb.AppendLine("  <style>");
+        sb.AppendLine("""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+""");
+        sb.AppendLine($"<title>Raqeeb Scan Report — {EscapeHtml(report.TargetUrl)}</title>");
+        sb.AppendLine("<style>");
         sb.AppendLine(GetReportStyles());
-        sb.AppendLine("  </style>");
-        sb.AppendLine("</head>");
-        sb.AppendLine("<body>");
-        
-        // Header
-        sb.AppendLine("  <div class=\"header\">");
-        sb.AppendLine("    <div class=\"logo\">??? Raqeeb</div>");
-        sb.AppendLine("    <h1>Vulnerability Scan Report</h1>");
-        sb.AppendLine($"    <p class=\"generated\">Generated: {report.GeneratedAt:MMMM dd, yyyy HH:mm:ss} UTC</p>");
-        sb.AppendLine("  </div>");
-        
-        // Summary Section
-        sb.AppendLine("  <div class=\"section\">");
-        sb.AppendLine("    <h2>Executive Summary</h2>");
-        sb.AppendLine("    <div class=\"summary-grid\">");
-        sb.AppendLine("      <div class=\"summary-item\">");
-        sb.AppendLine("        <span class=\"label\">Target</span>");
-        sb.AppendLine($"        <span class=\"value\">{report.TargetUrl}</span>");
-        sb.AppendLine("      </div>");
-        sb.AppendLine("      <div class=\"summary-item\">");
-        sb.AppendLine("        <span class=\"label\">Profile</span>");
-        sb.AppendLine($"        <span class=\"value\">{report.ProfileName}</span>");
-        sb.AppendLine("      </div>");
-        sb.AppendLine("      <div class=\"summary-item\">");
-        sb.AppendLine("        <span class=\"label\">Status</span>");
-        sb.AppendLine($"        <span class=\"value status-{report.Status.ToLower()}\">{report.Status}</span>");
-        sb.AppendLine("      </div>");
-        sb.AppendLine("      <div class=\"summary-item\">");
-        sb.AppendLine("        <span class=\"label\">Duration</span>");
-        sb.AppendLine($"        <span class=\"value\">{FormatDuration(report.Duration)}</span>");
-        sb.AppendLine("      </div>");
-        sb.AppendLine("    </div>");
-        sb.AppendLine("  </div>");
+        sb.AppendLine("</style></head><body>");
 
-        // Risk Score Section
-        sb.AppendLine("  <div class=\"section risk-section\">");
-        sb.AppendLine("    <h2>Risk Assessment</h2>");
-        sb.AppendLine("    <div class=\"risk-display\">");
-        sb.AppendLine($"      <div class=\"risk-score risk-{report.RiskLevel.ToLower()}\">");
-        sb.AppendLine($"        <span class=\"score\">{report.RiskScore:F0}</span>");
-        sb.AppendLine($"        <span class=\"level\">{report.RiskLevel} Risk</span>");
-        sb.AppendLine("      </div>");
-        sb.AppendLine("      <div class=\"vulnerability-counts\">");
-        sb.AppendLine($"        <div class=\"count critical\"><span>{report.CriticalCount}</span> Critical</div>");
-        sb.AppendLine($"        <div class=\"count high\"><span>{report.HighCount}</span> High</div>");
-        sb.AppendLine($"        <div class=\"count medium\"><span>{report.MediumCount}</span> Medium</div>");
-        sb.AppendLine($"        <div class=\"count low\"><span>{report.LowCount}</span> Low</div>");
-        sb.AppendLine($"        <div class=\"count info\"><span>{report.InfoCount}</span> Info</div>");
-        sb.AppendLine("      </div>");
-        sb.AppendLine("    </div>");
-        sb.AppendLine("  </div>");
+        // ── 1. Scan Details ──
+        sb.AppendLine("""
+<div class="header">
+  <div class="brand"><span class="logo">🛡️</span> Raqeeb Scan Report</div>
+</div>
+""");
+        sb.AppendLine("<div class='section'><h2>1. Scan Details</h2><table class='info-table'>");
+        Row("Target", EscapeHtml(report.TargetUrl));
+        Row("Profile", EscapeHtml(report.ProfileName));
+        Row("Status", report.Status);
+        Row("Started", report.StartTime.ToString("MMM dd, yyyy HH:mm:ss"));
+        Row("Completed", report.EndTime?.ToString("MMM dd, yyyy HH:mm:ss") ?? "In progress…");
+        Row("Duration", FormatDuration(report.Duration));
+        Row("Report Date", report.GeneratedAt.ToString("MMMM dd, yyyy HH:mm:ss"));
+        Row("Scan ID", report.ScanId.ToString());
+        sb.AppendLine("</table></div>");
 
-        // Vulnerabilities Section
-        sb.AppendLine("  <div class=\"section\">");
-        sb.AppendLine($"    <h2>Vulnerabilities ({report.TotalVulnerabilities})</h2>");
-        
+        // ── 2. Executive Summary ──
+        sb.AppendLine("<div class='section'><h2>2. Executive Summary</h2>");
+        sb.AppendLine($"<p>{BuildExecutiveSummary(report)}</p>");
+        sb.AppendLine("<div class='severity-bar'>");
+        SeverityPill("Critical", report.CriticalCount, "#dc2626");
+        SeverityPill("High", report.HighCount, "#ea580c");
+        SeverityPill("Medium", report.MediumCount, "#d97706");
+        SeverityPill("Low", report.LowCount, "#3b82f6");
+        SeverityPill("Info", report.InfoCount, "#64748b");
+        sb.AppendLine("</div>");
+        sb.AppendLine($"<div class='risk-badge risk-{report.RiskLevel.ToLowerInvariant()}'>");
+        sb.AppendLine($"<span class='score'>{report.RiskScore:F0}</span><span class='label'>/ 100 — {report.RiskLevel} Risk</span></div>");
+        sb.AppendLine("</div>");
+
+        // ── 3. Alerts Summary ──
+        sb.AppendLine("<div class='section'><h2>3. Alerts Summary</h2>");
         if (report.TotalVulnerabilities == 0)
         {
-            sb.AppendLine("    <div class=\"no-vulns\">");
-            sb.AppendLine("      <p>? No vulnerabilities were detected during this scan.</p>");
-            sb.AppendLine("    </div>");
+            sb.AppendLine("<p class='clean'>✓ No vulnerabilities were detected during this scan.</p>");
         }
         else
         {
-            foreach (var vuln in report.Vulnerabilities)
+            sb.AppendLine("<table class='alerts-table'><thead><tr><th>#</th><th>Severity</th><th>Name</th><th>CWE</th><th>CVSS</th><th>OWASP</th></tr></thead><tbody>");
+            int idx = 1;
+            foreach (var v in report.Vulnerabilities)
             {
-                sb.AppendLine($"    <div class=\"vulnerability severity-{vuln.Severity.ToLower()}\">");
-                sb.AppendLine($"      <div class=\"vuln-header\">");
-                sb.AppendLine($"        <span class=\"severity-badge\">{vuln.Severity}</span>");
-                sb.AppendLine($"        <h3>{vuln.Name}</h3>");
-                sb.AppendLine($"      </div>");
-                sb.AppendLine($"      <p class=\"description\">{vuln.Description}</p>");
-                sb.AppendLine($"      <div class=\"vuln-details\">");
-                sb.AppendLine($"        <div class=\"detail\"><strong>URL:</strong> <code>{vuln.Url}</code></div>");
-                if (!string.IsNullOrEmpty(vuln.OwaspCategory))
-                {
-                    sb.AppendLine($"        <div class=\"detail\"><strong>OWASP:</strong> <span class=\"compliance-tag\">{vuln.OwaspCategory}</span></div>");
-                }
-                if (!string.IsNullOrEmpty(vuln.CweId))
-                {
-                    sb.AppendLine($"        <div class=\"detail\"><strong>CWE:</strong> <span class=\"compliance-tag\">{vuln.CweId}</span></div>");
-                }
-                if (!string.IsNullOrEmpty(vuln.CvssScore))
-                {
-                    sb.AppendLine($"        <div class=\"detail\"><strong>CVSS Score:</strong> {vuln.CvssScore}</div>");
-                }
-                if (!string.IsNullOrEmpty(vuln.Evidence))
-                {
-                    sb.AppendLine($"        <div class=\"detail\"><strong>Evidence:</strong><pre>{vuln.Evidence}</pre></div>");
-                }
-                if (!string.IsNullOrEmpty(vuln.Remediation))
-                {
-                    sb.AppendLine($"        <div class=\"detail remediation\"><strong>Remediation:</strong><p>{vuln.Remediation}</p></div>");
-                }
-                sb.AppendLine($"      </div>");
-                sb.AppendLine($"    </div>");
+                sb.AppendLine($"<tr><td>{idx++}</td><td><span class='sev sev-{v.Severity.ToLowerInvariant()}'>{v.Severity}</span></td>");
+                sb.AppendLine($"<td><a href='#alert-{v.Id}'>{EscapeHtml(v.Name)}</a></td>");
+                sb.AppendLine($"<td>{EscapeHtml(v.CweId ?? "—")}</td>");
+                sb.AppendLine($"<td>{EscapeHtml(v.CvssScore ?? "—")}</td>");
+                sb.AppendLine($"<td>{EscapeHtml(v.OwaspCategory ?? "—")}</td></tr>");
             }
+            sb.AppendLine("</tbody></table>");
         }
-        
-        sb.AppendLine("  </div>");
+        sb.AppendLine("</div>");
+
+        // ── 4. Detailed Alerts ──
+        sb.AppendLine("<div class='section'><h2>4. Detailed Alerts</h2>");
+        foreach (var v in report.Vulnerabilities)
+        {
+            sb.AppendLine($"<div class='alert-card sev-border-{v.Severity.ToLowerInvariant()}' id='alert-{v.Id}'>");
+            sb.AppendLine($"<div class='alert-title'><span class='sev sev-{v.Severity.ToLowerInvariant()}'>{v.Severity}</span><h3>{EscapeHtml(v.Name)}</h3></div>");
+            sb.AppendLine("<table class='info-table alert-meta'>");
+            Row("CVSS Score", v.CvssScore ?? "—");
+            Row("CWE", v.CweId ?? "—");
+            Row("OWASP", v.OwaspCategory ?? "—");
+            Row("Location / URL", $"<code>{EscapeHtml(v.Url)}</code>");
+            if (!string.IsNullOrEmpty(v.AffectedParameter)) Row("Parameter", $"<code>{EscapeHtml(v.AffectedParameter)}</code>");
+            if (!string.IsNullOrEmpty(v.ModuleName)) Row("Scanner Module", EscapeHtml(v.ModuleName));
+            sb.AppendLine("</table>");
+
+            sb.AppendLine($"<h4>Vulnerability Description</h4><p>{EscapeHtml(v.Description)}</p>");
+
+            if (!string.IsNullOrEmpty(v.Evidence))
+            {
+                sb.AppendLine($"<h4>Attack Details / Evidence</h4><pre class='evidence'>{EscapeHtml(v.Evidence)}</pre>");
+            }
+
+            if (!string.IsNullOrEmpty(v.Remediation))
+            {
+                sb.AppendLine($"<div class='remediation-box'><h4>Remediation</h4><p>{EscapeHtml(v.Remediation)}</p></div>");
+            }
+
+            if (!string.IsNullOrEmpty(v.References))
+            {
+                sb.AppendLine("<h4>References</h4><ul class='ref-list'>");
+                foreach (var link in v.References.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    sb.AppendLine($"<li><a href='{EscapeHtml(link)}' target='_blank'>{EscapeHtml(link)}</a></li>");
+                sb.AppendLine("</ul>");
+            }
+            else if (!string.IsNullOrEmpty(v.CweId))
+            {
+                var cweNum = v.CweId.Replace("CWE-", "");
+                sb.AppendLine("<h4>References</h4><ul class='ref-list'>");
+                sb.AppendLine($"<li><a href='https://cwe.mitre.org/data/definitions/{cweNum}.html' target='_blank'>MITRE {v.CweId}</a></li>");
+                sb.AppendLine($"<li><a href='https://owasp.org/Top10/' target='_blank'>OWASP Top 10 (2021)</a></li>");
+                sb.AppendLine("</ul>");
+            }
+
+            sb.AppendLine("</div>"); // end alert-card
+        }
+        sb.AppendLine("</div>");
 
         // Footer
-        sb.AppendLine("  <div class=\"footer\">");
-        sb.AppendLine($"    <p>Report generated by {report.GeneratedBy} v{report.Version}</p>");
-        sb.AppendLine($"    <p>Scan ID: {report.ScanId}</p>");
-        sb.AppendLine("  </div>");
-
-        sb.AppendLine("</body>");
-        sb.AppendLine("</html>");
-
+        sb.AppendLine($"<div class='footer'>Report generated by {EscapeHtml(report.GeneratedBy)} v{report.Version} &bull; Scan ID: {report.ScanId}</div>");
+        sb.AppendLine("</body></html>");
         return sb.ToString();
+
+        void Row(string label, string value) => sb.AppendLine($"<tr><td class='lbl'>{label}</td><td>{value}</td></tr>");
+        void SeverityPill(string name, int count, string color) =>
+            sb.AppendLine($"<div class='pill' style='border-color:{color};color:{color}'><span class='num'>{count}</span>{name}</div>");
     }
 
+    private static string BuildExecutiveSummary(ScanReportDto r)
+    {
+        if (r.TotalVulnerabilities == 0)
+            return "The scan completed with no security vulnerabilities detected. The target appears to meet baseline security standards.";
+
+        var level = r.RiskLevel;
+        return $"The scan discovered <strong>{r.TotalVulnerabilities}</strong> vulnerability finding(s) across the target " +
+               $"<code>{EscapeHtml(r.TargetUrl)}</code>. The overall risk level is assessed as <strong>{level}</strong> " +
+               $"({r.CriticalCount} Critical, {r.HighCount} High, {r.MediumCount} Medium, {r.LowCount} Low, {r.InfoCount} Informational). " +
+               "Immediate remediation is recommended for all Critical and High severity findings.";
+    }
+
+    private static string EscapeHtml(string s) =>
+        System.Net.WebUtility.HtmlEncode(s ?? "");
+
     private static string GetReportStyles() => """
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', system-ui, sans-serif; 
-            line-height: 1.6; 
-            color: #1e293b;
-            background: #f8fafc;
-            padding: 2rem;
-        }
-        .header {
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-        }
-        .header .logo { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        .header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-        .header .generated { opacity: 0.8; }
-        .section {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .section h2 { 
-            color: #1e293b; 
-            margin-bottom: 1rem; 
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #e2e8f0;
-        }
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-        .summary-item {
-            display: flex;
-            flex-direction: column;
-            padding: 1rem;
-            background: #f8fafc;
-            border-radius: 8px;
-        }
-        .summary-item .label { font-size: 0.875rem; color: #64748b; margin-bottom: 0.25rem; }
-        .summary-item .value { font-weight: 600; font-size: 1.125rem; }
-        .risk-display {
-            display: flex;
-            align-items: center;
-            gap: 2rem;
-            flex-wrap: wrap;
-        }
-        .risk-score {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-        }
-        .risk-score .score { font-size: 3rem; font-weight: 700; line-height: 1; }
-        .risk-score .level { font-size: 0.875rem; }
-        .risk-critical { background: linear-gradient(135deg, #dc2626, #991b1b); }
-        .risk-high { background: linear-gradient(135deg, #ea580c, #c2410c); }
-        .risk-medium { background: linear-gradient(135deg, #f59e0b, #d97706); }
-        .risk-low { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-        .risk-none { background: linear-gradient(135deg, #22c55e, #16a34a); }
-        .vulnerability-counts {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        .count {
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            text-align: center;
-            min-width: 80px;
-        }
-        .count span { display: block; font-size: 1.5rem; font-weight: 700; }
-        .count.critical { background: #fef2f2; color: #dc2626; }
-        .count.high { background: #fff7ed; color: #ea580c; }
-        .count.medium { background: #fffbeb; color: #d97706; }
-        .count.low { background: #eff6ff; color: #3b82f6; }
-        .count.info { background: #f8fafc; color: #64748b; }
-        .vulnerability {
-            border-left: 4px solid;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            background: #f8fafc;
-            border-radius: 0 8px 8px 0;
-        }
-        .vulnerability.severity-critical { border-color: #dc2626; }
-        .vulnerability.severity-high { border-color: #ea580c; }
-        .vulnerability.severity-medium { border-color: #f59e0b; }
-        .vulnerability.severity-low { border-color: #3b82f6; }
-        .vulnerability.severity-info { border-color: #64748b; }
-        .vuln-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
-        .vuln-header h3 { font-size: 1.125rem; }
-        .severity-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: white;
-        }
-        .severity-critical .severity-badge { background: #dc2626; }
-        .severity-high .severity-badge { background: #ea580c; }
-        .severity-medium .severity-badge { background: #f59e0b; }
-        .severity-low .severity-badge { background: #3b82f6; }
-        .severity-info .severity-badge { background: #64748b; }
-        .description { color: #475569; margin-bottom: 1rem; }
-        .compliance-tag {
-            display: inline-block;
-            padding: 0.15rem 0.5rem;
-            background: #dbeafe;
-            color: #1e40af;
-            border-radius: 4px;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-        .vuln-details { font-size: 0.875rem; }
-        .detail { margin-bottom: 0.5rem; }
-        .detail code { background: #1e293b; color: #e2e8f0; padding: 0.25rem 0.5rem; border-radius: 4px; }
-        .detail pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; }
-        .remediation { background: #f0fdf4; padding: 1rem; border-radius: 8px; border: 1px solid #bbf7d0; }
-        .remediation p { color: #166534; }
-        .no-vulns {
-            text-align: center;
-            padding: 2rem;
-            background: #f0fdf4;
-            border-radius: 8px;
-            color: #166534;
-        }
-        .footer {
-            text-align: center;
-            padding: 1rem;
-            color: #64748b;
-            font-size: 0.875rem;
-        }
-        @media print {
-            body { padding: 0; background: white; }
-            .section { box-shadow: none; border: 1px solid #e2e8f0; }
-        }
-        """;
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;line-height:1.7;color:#1e293b;background:#f8fafc;padding:0}
+.header{background:linear-gradient(135deg,#1e1b4b,#312e81);color:#fff;padding:2rem 2.5rem}
+.brand{font-size:1.6rem;font-weight:700}
+.logo{margin-right:.4rem}
+.section{background:#fff;margin:1.5rem 2rem;padding:2rem;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.section h2{font-size:1.25rem;color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:.5rem;margin-bottom:1rem}
+.section h4{font-size:.95rem;color:#334155;margin:1rem 0 .4rem}
+.info-table{width:100%;border-collapse:collapse}
+.info-table td{padding:.45rem .6rem;border-bottom:1px solid #f1f5f9;font-size:.9rem;vertical-align:top}
+.info-table .lbl{font-weight:600;width:170px;color:#475569}
+code{background:#1e293b;color:#e2e8f0;padding:.15rem .45rem;border-radius:4px;font-size:.85rem}
+.severity-bar{display:flex;gap:.75rem;flex-wrap:wrap;margin:1rem 0}
+.pill{border:2px solid;border-radius:8px;padding:.4rem .9rem;font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:.4rem}
+.pill .num{font-size:1.3rem;font-weight:800}
+.risk-badge{display:inline-flex;align-items:center;gap:.7rem;padding:.6rem 1.2rem;border-radius:10px;color:#fff;margin-top:.5rem}
+.risk-badge .score{font-size:2rem;font-weight:800}.risk-badge .label{font-size:.95rem}
+.risk-critical{background:linear-gradient(135deg,#dc2626,#991b1b)}
+.risk-high{background:linear-gradient(135deg,#ea580c,#c2410c)}
+.risk-medium{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.risk-low{background:linear-gradient(135deg,#3b82f6,#2563eb)}
+.risk-none{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.alerts-table{width:100%;border-collapse:collapse;font-size:.88rem}
+.alerts-table th{text-align:left;padding:.55rem .6rem;background:#f1f5f9;border-bottom:2px solid #cbd5e1;font-weight:600}
+.alerts-table td{padding:.55rem .6rem;border-bottom:1px solid #f1f5f9}
+.alerts-table a{color:#2563eb;text-decoration:none;font-weight:500}
+.alerts-table a:hover{text-decoration:underline}
+.sev{display:inline-block;padding:.15rem .55rem;border-radius:4px;font-size:.75rem;font-weight:700;color:#fff;text-transform:uppercase}
+.sev-critical{background:#dc2626}.sev-high{background:#ea580c}.sev-medium{background:#d97706}.sev-low{background:#3b82f6}.sev-info{background:#64748b}
+.alert-card{border-left:5px solid;background:#f8fafc;border-radius:0 10px 10px 0;padding:1.5rem;margin-bottom:1.5rem}
+.sev-border-critical{border-color:#dc2626}.sev-border-high{border-color:#ea580c}.sev-border-medium{border-color:#d97706}.sev-border-low{border-color:#3b82f6}.sev-border-info{border-color:#64748b}
+.alert-title{display:flex;align-items:center;gap:.75rem;margin-bottom:.8rem}
+.alert-title h3{font-size:1.1rem}
+.alert-meta{margin-bottom:.8rem}
+.evidence{background:#1e293b;color:#e2e8f0;padding:1rem;border-radius:6px;overflow-x:auto;font-size:.82rem;white-space:pre-wrap;word-break:break-all}
+.remediation-box{background:#f0fdf4;border:1px solid #bbf7d0;padding:1rem;border-radius:8px;margin-top:.5rem}
+.remediation-box h4{color:#166534;margin-top:0}
+.remediation-box p{color:#166534;font-size:.9rem}
+.ref-list{margin:.3rem 0 0 1.2rem;font-size:.88rem}
+.ref-list a{color:#2563eb}
+.clean{text-align:center;padding:2rem;background:#f0fdf4;border-radius:8px;color:#166534;font-size:1.05rem}
+.footer{text-align:center;padding:1.5rem;color:#94a3b8;font-size:.82rem}
+@media print{body{padding:0;background:#fff}.section{box-shadow:none;border:1px solid #e2e8f0;break-inside:avoid}.alert-card{break-inside:avoid}}
+""";
 
     private static string FormatDuration(TimeSpan duration)
     {
@@ -351,16 +264,19 @@ public class ReportGenerator : IReportGenerator
         return $"{(int)duration.TotalSeconds}s";
     }
 
-    // PDF Generation Helpers
+    // ───── PDF Generation (Acunetix-style) ─────
+
     private static void ComposeHeader(IContainer container, ScanReportDto report)
     {
-        container.Row(row =>
+        container.Column(col =>
         {
-            row.RelativeItem().Column(column =>
+            col.Item().Background(Colors.Indigo.Darken3).Padding(20).Row(row =>
             {
-                column.Item().Text("👁️ Raqeeb").FontSize(20).SemiBold();
-                column.Item().Text("Vulnerability Scan Report").FontSize(16).Bold();
-                column.Item().Text($"Generated: {report.GeneratedAt:MMMM dd, yyyy HH:mm:ss} UTC").FontSize(10).FontColor(Colors.Grey.Medium);
+                row.RelativeItem().Column(c =>
+                {
+                    c.Item().Text("Raqeeb Scan Report").FontSize(22).Bold().FontColor(Colors.White);
+                    c.Item().Text(report.TargetUrl).FontSize(10).FontColor(Colors.Grey.Lighten2);
+                });
             });
         });
     }
@@ -371,155 +287,197 @@ public class ReportGenerator : IReportGenerator
         {
             column.Spacing(15);
 
-            // Executive Summary
-            column.Item().Element(c => ComposeSummarySection(c, report));
+            // § 1 — Scan Details
+            column.Item().Text("1. Scan Details").FontSize(14).Bold();
+            column.Item().Element(c => ComposeScanDetailsTable(c, report));
 
-            // Risk Assessment
-            column.Item().Element(c => ComposeRiskSection(c, report));
+            // § 2 — Executive Summary
+            column.Item().Text("2. Executive Summary").FontSize(14).Bold();
+            column.Item().Text(BuildExecutiveSummaryPlain(report)).FontSize(10);
+            column.Item().Element(c => ComposeSeverityCounts(c, report));
 
-            // Vulnerabilities
-            column.Item().Element(c => ComposeVulnerabilitiesSection(c, report));
-        });
-    }
+            // § 3 — Alerts Summary
+            column.Item().Text("3. Alerts Summary").FontSize(14).Bold();
+            column.Item().Element(c => ComposeAlertsSummaryTable(c, report));
 
-    private static void ComposeSummarySection(IContainer container, ScanReportDto report)
-    {
-        container.Column(column =>
-        {
-            column.Item().Text("Executive Summary").FontSize(14).Bold();
-            column.Item().PaddingTop(5).Table(table =>
+            // § 4 — Detailed Alerts
+            column.Item().Text("4. Detailed Alerts").FontSize(14).Bold();
+            foreach (var vuln in report.Vulnerabilities)
             {
-                table.ColumnsDefinition(columns =>
-                {
-                    columns.RelativeColumn(1);
-                    columns.RelativeColumn(2);
-                });
-
-                table.Cell().BorderBottom(1).Padding(5).Text("Target:").SemiBold();
-                table.Cell().BorderBottom(1).Padding(5).Text(report.TargetUrl);
-
-                table.Cell().BorderBottom(1).Padding(5).Text("Profile:").SemiBold();
-                table.Cell().BorderBottom(1).Padding(5).Text(report.ProfileName);
-
-                table.Cell().BorderBottom(1).Padding(5).Text("Status:").SemiBold();
-                table.Cell().BorderBottom(1).Padding(5).Text(report.Status);
-
-                table.Cell().Padding(5).Text("Duration:").SemiBold();
-                table.Cell().Padding(5).Text(FormatDuration(report.Duration));
-            });
-        });
-    }
-
-    private static void ComposeRiskSection(IContainer container, ScanReportDto report)
-    {
-        container.Column(column =>
-        {
-            column.Item().Text("Risk Assessment").FontSize(14).Bold();
-            column.Item().PaddingTop(5).Row(row =>
-            {
-                row.RelativeItem().Column(col =>
-                {
-                    col.Item().Text($"Risk Score: {report.RiskScore:F0}/100").FontSize(12).SemiBold();
-                    col.Item().Text($"Risk Level: {report.RiskLevel}").FontSize(12)
-                        .FontColor(report.RiskLevel switch
-                        {
-                            "Critical" => Colors.Red.Darken2,
-                            "High" => Colors.Orange.Darken2,
-                            "Medium" => Colors.Yellow.Darken2,
-                            "Low" => Colors.Blue.Medium,
-                            _ => Colors.Green.Medium
-                        });
-                });
-
-                row.RelativeItem().Column(col =>
-                {
-                    col.Item().Text($"Critical: {report.CriticalCount}").FontColor(Colors.Red.Darken2);
-                    col.Item().Text($"High: {report.HighCount}").FontColor(Colors.Orange.Darken2);
-                    col.Item().Text($"Medium: {report.MediumCount}").FontColor(Colors.Yellow.Darken2);
-                    col.Item().Text($"Low: {report.LowCount}").FontColor(Colors.Blue.Medium);
-                    col.Item().Text($"Info: {report.InfoCount}").FontColor(Colors.Grey.Medium);
-                });
-            });
-        });
-    }
-
-    private static void ComposeVulnerabilitiesSection(IContainer container, ScanReportDto report)
-    {
-        container.Column(column =>
-        {
-            column.Item().Text($"Vulnerabilities ({report.TotalVulnerabilities})").FontSize(14).Bold();
-
-            if (report.TotalVulnerabilities == 0)
-            {
-                column.Item().PaddingTop(10).Text("✓ No vulnerabilities were detected during this scan.")
-                    .FontColor(Colors.Green.Medium);
+                column.Item().Element(c => ComposeDetailedAlert(c, vuln));
             }
-            else
+        });
+    }
+
+    private static void ComposeScanDetailsTable(IContainer container, ScanReportDto report)
+    {
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
+            void R(string label, string val)
             {
-                foreach (var vuln in report.Vulnerabilities)
+                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(label).SemiBold().FontSize(9);
+                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(4).Text(val).FontSize(9);
+            }
+            R("Target", report.TargetUrl);
+            R("Profile", report.ProfileName);
+            R("Status", report.Status);
+            R("Started", report.StartTime.ToString("MMM dd, yyyy HH:mm:ss"));
+            R("Completed", report.EndTime?.ToString("MMM dd, yyyy HH:mm:ss") ?? "In progress…");
+            R("Duration", FormatDuration(report.Duration));
+            R("Report Date", report.GeneratedAt.ToString("MMMM dd, yyyy HH:mm:ss"));
+            R("Scan ID", report.ScanId.ToString());
+        });
+    }
+
+    private static string BuildExecutiveSummaryPlain(ScanReportDto r)
+    {
+        if (r.TotalVulnerabilities == 0)
+            return "The scan completed with no security vulnerabilities detected.";
+        return $"The scan discovered {r.TotalVulnerabilities} finding(s). Overall risk: {r.RiskLevel} ({r.RiskScore:F0}/100). " +
+               $"{r.CriticalCount} Critical, {r.HighCount} High, {r.MediumCount} Medium, {r.LowCount} Low, {r.InfoCount} Info. " +
+               "Immediate remediation is recommended for all Critical and High findings.";
+    }
+
+    private static void ComposeSeverityCounts(IContainer container, ScanReportDto report)
+    {
+        container.Row(row =>
+        {
+            void Pill(string label, int count, string color)
+            {
+                row.AutoItem().PaddingRight(10).Border(1).BorderColor(color).Padding(5).Row(r =>
                 {
-                    column.Item().PaddingTop(10).BorderLeft(3)
-                        .BorderColor(vuln.Severity switch
-                        {
-                            "Critical" => Colors.Red.Darken2,
-                            "High" => Colors.Orange.Darken2,
-                            "Medium" => Colors.Yellow.Darken2,
-                            "Low" => Colors.Blue.Medium,
-                            _ => Colors.Grey.Medium
-                        })
-                        .Background(Colors.Grey.Lighten4)
-                        .Padding(8)
-                        .Column(vulnColumn =>
-                        {
-                            vulnColumn.Item().Row(row =>
-                            {
-                                row.AutoItem().PaddingRight(5).Text($"[{vuln.Severity}]")
-                                    .FontSize(9).SemiBold()
-                                    .FontColor(vuln.Severity switch
-                                    {
-                                        "Critical" => Colors.Red.Darken2,
-                                        "High" => Colors.Orange.Darken2,
-                                        "Medium" => Colors.Yellow.Darken2,
-                                        "Low" => Colors.Blue.Medium,
-                                        _ => Colors.Grey.Medium
-                                    });
-                                row.RelativeItem().Text(vuln.Name).FontSize(11).SemiBold();
-                            });
+                    r.AutoItem().Text($"{count}").FontSize(12).Bold().FontColor(color);
+                    r.AutoItem().PaddingLeft(3).Text(label).FontSize(8).FontColor(color);
+                });
+            }
+            Pill("Critical", report.CriticalCount, Colors.Red.Darken2);
+            Pill("High", report.HighCount, Colors.Orange.Darken2);
+            Pill("Medium", report.MediumCount, Colors.Yellow.Darken2);
+            Pill("Low", report.LowCount, Colors.Blue.Medium);
+            Pill("Info", report.InfoCount, Colors.Grey.Medium);
+        });
+    }
 
-                            vulnColumn.Item().PaddingTop(3).Text(vuln.Description).FontSize(9);
+    private static void ComposeAlertsSummaryTable(IContainer container, ScanReportDto report)
+    {
+        if (report.TotalVulnerabilities == 0)
+        {
+            container.Text("No vulnerabilities detected.").FontColor(Colors.Green.Medium).FontSize(10);
+            return;
+        }
 
-                            vulnColumn.Item().PaddingTop(3).Text($"URL: {vuln.Url}").FontSize(8).Italic();
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(c =>
+            {
+                c.ConstantColumn(25);   // #
+                c.ConstantColumn(55);   // Severity
+                c.RelativeColumn(3);    // Name
+                c.ConstantColumn(55);   // CWE
+                c.ConstantColumn(40);   // CVSS
+            });
 
-                            if (!string.IsNullOrEmpty(vuln.OwaspCategory))
-                            {
-                                vulnColumn.Item().PaddingTop(2).Text($"OWASP: {vuln.OwaspCategory}").FontSize(8).FontColor(Colors.Blue.Darken1);
-                            }
+            // Header
+            table.Header(header =>
+            {
+                header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("#").FontSize(8).SemiBold();
+                header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("Severity").FontSize(8).SemiBold();
+                header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("Name").FontSize(8).SemiBold();
+                header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("CWE").FontSize(8).SemiBold();
+                header.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("CVSS").FontSize(8).SemiBold();
+            });
 
-                            if (!string.IsNullOrEmpty(vuln.CweId))
-                            {
-                                vulnColumn.Item().Text($"CWE: {vuln.CweId}").FontSize(8).FontColor(Colors.Blue.Darken1);
-                            }
+            int i = 1;
+            foreach (var v in report.Vulnerabilities)
+            {
+                var sevColor = SeverityColor(v.Severity);
+                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(3).Text($"{i++}").FontSize(8);
+                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(v.Severity).FontSize(8).FontColor(sevColor).SemiBold();
+                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(v.Name).FontSize(8);
+                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(v.CweId ?? "—").FontSize(8);
+                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Padding(3).Text(v.CvssScore ?? "—").FontSize(8);
+            }
+        });
+    }
 
-                            if (!string.IsNullOrEmpty(vuln.Remediation))
-                            {
-                                vulnColumn.Item().PaddingTop(3).Background(Colors.Green.Lighten4)
-                                    .Padding(5).Text($"Remediation: {vuln.Remediation}")
-                                    .FontSize(8).FontColor(Colors.Green.Darken2);
-                            }
-                        });
+    private static void ComposeDetailedAlert(IContainer container, VulnerabilityReportDto v)
+    {
+        var sevColor = SeverityColor(v.Severity);
+
+        container.PaddingTop(8).BorderLeft(4).BorderColor(sevColor).Background(Colors.Grey.Lighten4).Padding(10).Column(col =>
+        {
+            // Title
+            col.Item().Row(r =>
+            {
+                r.AutoItem().Background(sevColor).PaddingVertical(3).PaddingHorizontal(6).Text(v.Severity).FontSize(8).Bold().FontColor(Colors.White);
+                r.AutoItem().PaddingLeft(8).Text(v.Name).FontSize(11).SemiBold();
+            });
+
+            // Meta table
+            col.Item().PaddingTop(6).Table(t =>
+            {
+                t.ColumnsDefinition(c => { c.ConstantColumn(100); c.RelativeColumn(); });
+                void R(string l, string val)
+                {
+                    t.Cell().Padding(2).Text(l).FontSize(8).SemiBold().FontColor(Colors.Grey.Darken1);
+                    t.Cell().Padding(2).Text(val).FontSize(8);
                 }
+                R("CVSS Score", v.CvssScore ?? "—");
+                R("CWE", v.CweId ?? "—");
+                R("OWASP", v.OwaspCategory ?? "—");
+                R("URL", v.Url);
+                if (!string.IsNullOrEmpty(v.AffectedParameter)) R("Parameter", v.AffectedParameter);
+                if (!string.IsNullOrEmpty(v.ModuleName)) R("Module", v.ModuleName);
+            });
+
+            // Description
+            col.Item().PaddingTop(6).Text("Vulnerability Description").FontSize(9).SemiBold();
+            col.Item().PaddingTop(2).Text(v.Description).FontSize(9);
+
+            // Evidence
+            if (!string.IsNullOrEmpty(v.Evidence))
+            {
+                col.Item().PaddingTop(6).Text("Attack Details / Evidence").FontSize(9).SemiBold();
+                col.Item().PaddingTop(2).Background(Colors.Grey.Darken3).Padding(8)
+                    .Text(v.Evidence).FontSize(8).FontColor(Colors.Grey.Lighten3);
+            }
+
+            // Remediation
+            if (!string.IsNullOrEmpty(v.Remediation))
+            {
+                col.Item().PaddingTop(6).Background(Colors.Green.Lighten4).Padding(8).Column(remCol =>
+                {
+                    remCol.Item().Text("Remediation").FontSize(9).SemiBold().FontColor(Colors.Green.Darken2);
+                    remCol.Item().PaddingTop(2).Text(v.Remediation).FontSize(8).FontColor(Colors.Green.Darken2);
+                });
+            }
+
+            // References
+            if (!string.IsNullOrEmpty(v.CweId))
+            {
+                var cweNum = v.CweId.Replace("CWE-", "");
+                col.Item().PaddingTop(4).Text($"Ref: https://cwe.mitre.org/data/definitions/{cweNum}.html")
+                    .FontSize(7).FontColor(Colors.Blue.Medium);
             }
         });
     }
+
+    private static string SeverityColor(string severity) => severity switch
+    {
+        "Critical" => Colors.Red.Darken2,
+        "High" => Colors.Orange.Darken2,
+        "Medium" => Colors.Yellow.Darken2,
+        "Low" => Colors.Blue.Medium,
+        _ => Colors.Grey.Medium
+    };
 
     private static void ComposeFooter(IContainer container, ScanReportDto report)
     {
         container.AlignCenter().Text(text =>
         {
-            text.Span($"Report generated by {report.GeneratedBy} v{report.Version} | ");
-            text.Span($"Scan ID: {report.ScanId}");
-            text.Span($" | Page ").FontSize(9);
-            text.CurrentPageNumber().FontSize(9);
+            text.Span($"Raqeeb v{report.Version} | Scan ID: {report.ScanId} | Page ").FontSize(8).FontColor(Colors.Grey.Medium);
+            text.CurrentPageNumber().FontSize(8).FontColor(Colors.Grey.Medium);
         });
     }
 

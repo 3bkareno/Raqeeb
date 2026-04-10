@@ -49,4 +49,11 @@ public record VulnerabilityReportDto
     public string? OwaspCategory { get; init; }
     public string? CweId { get; init; }
     public string? CvssScore { get; init; }
+
+    // Extended enterprise fields
+    public string? ModuleName { get; init; }
+    public string? AffectedParameter { get; init; }
+    public string? HttpRequest { get; init; }
+    public string? HttpResponse { get; init; }
+    public string? References { get; init; }
 }

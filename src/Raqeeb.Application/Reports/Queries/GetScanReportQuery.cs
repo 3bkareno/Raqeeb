@@ -64,10 +64,14 @@ public class GetScanReportQueryHandler : IRequestHandler<GetScanReportQuery, Sca
                 Url = v.Url,
                 Evidence = v.Evidence,
                 Remediation = v.Remediation,
-                // Auto-populate compliance mappings if not already set
                 OwaspCategory = v.OwaspCategory ?? ComplianceMapping.GetOwaspCategory(v.Name),
                 CweId = v.CweId ?? ComplianceMapping.GetCweId(v.Name),
-                CvssScore = v.CvssScore
+                CvssScore = v.CvssScore,
+                ModuleName = v.ModuleName,
+                AffectedParameter = v.AffectedParameter,
+                HttpRequest = v.HttpRequest,
+                HttpResponse = v.HttpResponse,
+                References = v.References
             }).OrderByDescending(v => v.SeverityScore)
         };
     }

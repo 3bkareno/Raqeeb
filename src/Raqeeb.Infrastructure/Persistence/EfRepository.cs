@@ -24,6 +24,18 @@ namespace Raqeeb.Infrastructure.Persistence
             return await _dbSet.FindAsync(id);
         }
 
+        public async Task<T?> GetByIdFreshAsync(Guid id)
+        {
+            // Detach the tracked entity if present so the query hits the database
+            var tracked = _dbSet.Local.FirstOrDefault(e => _context.Entry(e).Property("Id").CurrentValue is Guid g && g == id);
+            if (tracked != null)
+            {
+                _context.Entry(tracked).State = EntityState.Detached;
+            }
+
+            return await _dbSet.FindAsync(id);
+        }
+
         public async Task<IEnumerable<T>> GetAllAsync()
         {
             return await _dbSet.ToListAsync();

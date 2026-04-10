@@ -8,6 +8,11 @@ namespace Raqeeb.Domain.Interfaces
     public interface IRepository<T> where T : class
     {
         Task<T?> GetByIdAsync(Guid id);
+        /// <summary>
+        /// Loads the entity directly from the database, bypassing the EF Core change tracker.
+        /// Use this when the entity may have been modified by another process.
+        /// </summary>
+        Task<T?> GetByIdFreshAsync(Guid id);
         Task<IEnumerable<T>> GetAllAsync();
         Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate);
         Task AddAsync(T entity);

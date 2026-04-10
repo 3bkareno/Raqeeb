@@ -55,6 +55,12 @@ namespace Raqeeb.Infrastructure.Persistence
             return Task.FromResult(entity);
         }
 
+        public Task<T?> GetByIdFreshAsync(Guid id)
+        {
+            // In-memory repo has no change tracker, behaves the same
+            return GetByIdAsync(id);
+        }
+
         public Task UpdateAsync(T entity)
         {
             var idProp = typeof(T).GetProperty("Id");
