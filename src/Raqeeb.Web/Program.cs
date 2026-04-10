@@ -168,6 +168,8 @@ try
     builder.Services.AddTransient<IScannerModule, PortScanner>();
     builder.Services.AddTransient<IScannerModule, CommandInjectionScanner>();
     builder.Services.AddTransient<IScannerModule, XxeScanner>();
+    builder.Services.AddTransient<IScannerModule, JwtSecurityScanner>();
+    builder.Services.AddTransient<IScannerModule, IdorScanner>();
     
     builder.Services.AddHttpClient();
 
