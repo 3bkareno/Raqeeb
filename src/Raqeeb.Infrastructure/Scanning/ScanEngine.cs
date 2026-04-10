@@ -50,14 +50,13 @@ namespace Raqeeb.Infrastructure.Scanning
         {
             using var scope = _scopeFactory.CreateScope();
             var jobRepo = scope.ServiceProvider.GetRequiredService<IRepository<ScanJob>>();
+            var vulnRepo = scope.ServiceProvider.GetRequiredService<IRepository<Vulnerability>>();
             var targetRepo = scope.ServiceProvider.GetRequiredService<IRepository<Target>>();
             var profileRepo = scope.ServiceProvider.GetRequiredService<IRepository<ScanProfile>>();
 
-            ScanJob? job = null;
-
             try
             {
-                job = await jobRepo.GetByIdAsync(scanJobId);
+                var job = await jobRepo.GetByIdAsync(scanJobId);
                 if (job == null)
                 {
                     _logger.LogError("ScanJob {ScanJobId} not found", scanJobId);
@@ -88,31 +87,118 @@ namespace Raqeeb.Infrastructure.Scanning
                     foreach (var v in vulns)
                     {
                         v.ScanJobId = job.Id;
-                        job.Vulnerabilities.Add(v);
+                        v.ModuleName ??= module.Name;
+                        EnrichComplianceFields(v);
+                        await vulnRepo.AddAsync(v);
                     }
                 }
 
-                job.Status = ScanStatus.Completed;
-                job.EndTime = DateTime.UtcNow;
-                await jobRepo.UpdateAsync(job);
+                // Reload the job to avoid concurrency issues before final update
+                job = await jobRepo.GetByIdAsync(scanJobId);
+                if (job != null)
+                {
+                    job.Status = ScanStatus.Completed;
+                    job.EndTime = DateTime.UtcNow;
+                    await jobRepo.UpdateAsync(job);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Scan failed for job {ScanJobId}", scanJobId);
-                if (job != null)
+                
+                try
                 {
-                    try
+                    // Reload the job before updating to avoid concurrency issues
+                    var job = await jobRepo.GetByIdAsync(scanJobId);
+                    if (job != null)
                     {
                         job.Status = ScanStatus.Failed;
                         job.EndTime = DateTime.UtcNow;
                         await jobRepo.UpdateAsync(job);
                     }
-                    catch (Exception updateEx)
-                    {
-                        _logger.LogError(updateEx, "Failed to update job status to Failed for job {ScanJobId}", scanJobId);
-                    }
+                }
+                catch (Exception updateEx)
+                {
+                    _logger.LogError(updateEx, "Failed to update job status to Failed for job {ScanJobId}", scanJobId);
                 }
             }
+        }
+
+        /// <summary>
+        /// Fills in OWASP/CWE/CVSS fields when a scanner module did not set them,
+        /// based on common vulnerability name patterns.
+        /// </summary>
+        private static void EnrichComplianceFields(Vulnerability v)
+        {
+            // Only fill fields that the module left empty
+            if (!string.IsNullOrEmpty(v.OwaspCategory) &&
+                !string.IsNullOrEmpty(v.CweId) &&
+                !string.IsNullOrEmpty(v.CvssScore))
+            {
+                return;
+            }
+
+            var name = v.Name.ToLowerInvariant();
+
+            var (owasp, cwe, cvss) = name switch
+            {
+                _ when name.Contains("xss") || name.Contains("cross-site scripting")
+                    => ("A03:2021 - Injection", "CWE-79", v.Severity >= Severity.High ? "8.1" : "6.1"),
+
+                _ when name.Contains("sql injection")
+                    => ("A03:2021 - Injection", "CWE-89", v.Severity >= Severity.High ? "9.8" : "7.5"),
+
+                _ when name.Contains("ssrf") || name.Contains("server-side request")
+                    => ("A10:2021 - Server-Side Request Forgery", "CWE-918", "9.1"),
+
+                _ when name.Contains("cors")
+                    => ("A05:2021 - Security Misconfiguration", "CWE-942", "5.3"),
+
+                _ when name.Contains("clickjack") || name.Contains("frame")
+                    => ("A05:2021 - Security Misconfiguration", "CWE-1021", "4.7"),
+
+                _ when name.Contains("csrf") || name.Contains("cross-site request forgery")
+                    => ("A01:2021 - Broken Access Control", "CWE-352", "6.5"),
+
+                _ when name.Contains("redirect")
+                    => ("A01:2021 - Broken Access Control", "CWE-601", "5.4"),
+
+                _ when name.Contains("certificate") || name.Contains("ssl") || name.Contains("tls") || name.Contains("https")
+                    => ("A02:2021 - Cryptographic Failures", "CWE-295", "5.3"),
+
+                _ when name.Contains("hsts")
+                    => ("A05:2021 - Security Misconfiguration", "CWE-319", "5.3"),
+
+                _ when name.Contains("path traversal") || name.Contains("local file")
+                    => ("A01:2021 - Broken Access Control", "CWE-22", "9.1"),
+
+                _ when name.Contains("directory") || name.Contains("hidden path")
+                    => ("A05:2021 - Security Misconfiguration", "CWE-538", "5.3"),
+
+                _ when name.Contains("port") && name.Contains("open")
+                    => ("A05:2021 - Security Misconfiguration", "CWE-200", v.Severity >= Severity.High ? "7.5" : "3.7"),
+
+                _ when name.Contains("subdomain")
+                    => ("A05:2021 - Security Misconfiguration", "CWE-200", "3.7"),
+
+                _ when name.Contains("cookie")
+                    => ("A05:2021 - Security Misconfiguration", "CWE-614", "5.3"),
+
+                _ when name.Contains("session")
+                    => ("A07:2021 - Identification and Authentication Failures", "CWE-384", "5.3"),
+
+                _ when name.Contains("disclosure") || name.Contains("information") || name.Contains("exposed")
+                    => ("A05:2021 - Security Misconfiguration", "CWE-200", "5.3"),
+
+                _ when name.Contains("method") || name.Contains("trace") || name.Contains("verb")
+                    => ("A05:2021 - Security Misconfiguration", "CWE-749", "5.3"),
+
+                _ => ("A05:2021 - Security Misconfiguration", "CWE-16", "3.7")
+            };
+
+            v.OwaspCategory ??= owasp;
+            v.CweId ??= cwe;
+            v.CvssScore ??= cvss;
         }
     }
 }

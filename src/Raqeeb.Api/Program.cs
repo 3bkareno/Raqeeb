@@ -6,6 +6,8 @@ using Raqeeb.Application.Reports;
 using Raqeeb.Application.Scans.Commands;
 using Raqeeb.Domain.Entities;
 using Raqeeb.Domain.Interfaces;
+using Raqeeb.Infrastructure.Jobs;
+using Raqeeb.Infrastructure.Notifications;
 using Raqeeb.Infrastructure.Persistence;
 using Raqeeb.Infrastructure.Reporting;
 using Raqeeb.Infrastructure.Scanning;
@@ -26,8 +28,34 @@ builder.Services.AddDbContext<RaqeebDbContext>(options =>
 builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 builder.Services.AddSingleton<IScanEngine, ScanEngine>();
 builder.Services.AddSingleton<IHttpCrawler, HttpCrawler>();
+
+// Scanner Modules - Register all available scanners
 builder.Services.AddTransient<IScannerModule, HeaderSecurityScanner>();
+builder.Services.AddTransient<IScannerModule, XssScanner>();
+builder.Services.AddTransient<IScannerModule, SqlInjectionScanner>();
+builder.Services.AddTransient<IScannerModule, CorsScanner>();
+builder.Services.AddTransient<IScannerModule, ClickjackingScanner>();
+builder.Services.AddTransient<IScannerModule, SslTlsScanner>();
+builder.Services.AddTransient<IScannerModule, OpenRedirectScanner>();
+builder.Services.AddTransient<IScannerModule, CsrfScanner>();
+builder.Services.AddTransient<IScannerModule, SsrfScanner>();
+builder.Services.AddTransient<IScannerModule, HttpMethodScanner>();
+builder.Services.AddTransient<IScannerModule, DirectoryTraversalScanner>();
+builder.Services.AddTransient<IScannerModule, InformationDisclosureScanner>();
+builder.Services.AddTransient<IScannerModule, SessionSecurityScanner>();
+builder.Services.AddTransient<IScannerModule, DirectoryBruteforceScanner>();
+builder.Services.AddTransient<IScannerModule, SubdomainEnumerationScanner>();
+builder.Services.AddTransient<IScannerModule, PortScanner>();
+
 builder.Services.AddSingleton<IReportGenerator, ReportGenerator>();
+
+// Phase 3: Notification and Scheduling Services
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IWebhookService, WebhookService>();
+builder.Services.AddScoped<IScheduleService, ScheduleService>();
+builder.Services.AddScoped<ScanJobProcessor>();
+
 builder.Services.AddHttpClient();
 
 // Application (MediatR)

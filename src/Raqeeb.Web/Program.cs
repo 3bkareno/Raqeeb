@@ -145,7 +145,25 @@ try
     builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
     builder.Services.AddSingleton<IScanEngine, ScanEngine>();
     builder.Services.AddSingleton<IHttpCrawler, HttpCrawler>();
+    
+    // Scanner Modules - Register all available scanners
     builder.Services.AddTransient<IScannerModule, HeaderSecurityScanner>();
+    builder.Services.AddTransient<IScannerModule, XssScanner>();
+    builder.Services.AddTransient<IScannerModule, SqlInjectionScanner>();
+    builder.Services.AddTransient<IScannerModule, CorsScanner>();
+    builder.Services.AddTransient<IScannerModule, ClickjackingScanner>();
+    builder.Services.AddTransient<IScannerModule, SslTlsScanner>();
+    builder.Services.AddTransient<IScannerModule, OpenRedirectScanner>();
+    builder.Services.AddTransient<IScannerModule, CsrfScanner>();
+    builder.Services.AddTransient<IScannerModule, SsrfScanner>();
+    builder.Services.AddTransient<IScannerModule, HttpMethodScanner>();
+    builder.Services.AddTransient<IScannerModule, DirectoryTraversalScanner>();
+    builder.Services.AddTransient<IScannerModule, InformationDisclosureScanner>();
+    builder.Services.AddTransient<IScannerModule, SessionSecurityScanner>();
+    builder.Services.AddTransient<IScannerModule, DirectoryBruteforceScanner>();
+    builder.Services.AddTransient<IScannerModule, SubdomainEnumerationScanner>();
+    builder.Services.AddTransient<IScannerModule, PortScanner>();
+    
     builder.Services.AddHttpClient();
 
     // Application (MediatR)

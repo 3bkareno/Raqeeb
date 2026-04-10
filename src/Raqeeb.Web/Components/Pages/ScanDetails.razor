@@ -4,6 +4,8 @@
 @implements IDisposable
 @inject IRepository<ScanJob> ScanJobRepository
 @inject IRepository<Vulnerability> VulnerabilityRepository
+@inject IRepository<Target> TargetRepository
+@inject IRepository<ScanProfile> ProfileRepository
 @inject NavigationManager NavigationManager
 @inject Raqeeb.Web.Services.ILocalizationService L
 
@@ -215,10 +217,11 @@ else
                 <table class="table table-hover mb-0">
                     <thead>
                         <tr>
-                            <th>Severity</th>
+                            <th style="width:90px">Severity</th>
                             <th>Name</th>
-                            <th>URL</th>
-                            <th>Actions</th>
+                            <th style="width:120px">CVSS</th>
+                            <th>CWE / OWASP</th>
+                            <th style="width:80px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -234,8 +237,25 @@ else
                                     <strong>@vuln.Name</strong>
                                     <br />
                                     <small class="text-muted">@(vuln.Description.Length > 80 ? vuln.Description[..80] + "..." : vuln.Description)</small>
+                                    <br />
+                                    <code class="small text-muted">@vuln.Url</code>
                                 </td>
-                                <td><code class="small">@vuln.Url</code></td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(vuln.CvssScore))
+                                    {
+                                        <span class="badge bg-dark">@vuln.CvssScore</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(vuln.CweId))
+                                    {
+                                        <span class="badge bg-secondary me-1">@vuln.CweId</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(vuln.OwaspCategory))
+                                    {
+                                        <br /><small class="text-muted">@vuln.OwaspCategory</small>
+                                    }
+                                </td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-primary" 
                                             @onclick="() => ShowVulnerabilityDetails(vuln)">
@@ -278,10 +298,23 @@ else
         scan = await ScanJobRepository.GetByIdAsync(ScanId);
         if (scan != null)
         {
+            // Load navigation properties if not loaded
+            if (scan.TargetId != Guid.Empty && scan.Target == null)
+            {
+                scan.Target = await TargetRepository.GetByIdAsync(scan.TargetId);
+            }
+            if (scan.ScanProfileId != Guid.Empty && scan.ScanProfile == null)
+            {
+                scan.ScanProfile = await ProfileRepository.GetByIdAsync(scan.ScanProfileId);
+            }
+            
             var vulns = await VulnerabilityRepository.FindAsync(v => v.ScanJobId == ScanId);
             vulnerabilities = vulns.ToList();
         }
         isLoading = false;
+        
+        // Force UI update
+        await InvokeAsync(StateHasChanged);
     }
 
     private void StartAutoRefresh()

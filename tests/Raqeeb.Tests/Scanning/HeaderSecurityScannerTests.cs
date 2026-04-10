@@ -39,14 +39,18 @@ public class HeaderSecurityScannerTests
         var headers = new Dictionary<string, string>
         {
             ["X-Content-Type-Options"] = "nosniff",
-            ["Strict-Transport-Security"] = "max-age=31536000"
+            ["Strict-Transport-Security"] = "max-age=31536000",
+            ["X-Frame-Options"] = "DENY",
+            ["X-XSS-Protection"] = "1; mode=block",
+            ["Referrer-Policy"] = "strict-origin-when-cross-origin",
+            ["Permissions-Policy"] = "geolocation=(), camera=()"
         };
-        var context = CreateContext("https://example.com", headers);
+        var context = CreateContext("https://example.com", headers, addCsp: true);
         var results = await _scanner.ScanAsync(context);
         results.Should().BeEmpty();
     }
 
-    private static ScanContext CreateContext(string url, Dictionary<string, string> headers)
+    private static ScanContext CreateContext(string url, Dictionary<string, string> headers, bool addCsp = false)
     {
         var target = new Target { Id = Guid.NewGuid(), Url = url, IsVerified = true };
         var profile = new ScanProfile { Id = Guid.NewGuid(), Name = "Test" };
@@ -54,6 +58,8 @@ public class HeaderSecurityScannerTests
         var response = new HttpResponseMessage(HttpStatusCode.OK);
         foreach (var header in headers)
             response.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        if (addCsp)
+            response.Content.Headers.TryAddWithoutValidation("Content-Security-Policy", "default-src 'self'");
         mockHandler.Protected()
             .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(response);
