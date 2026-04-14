@@ -54,6 +54,16 @@ namespace Raqeeb.Infrastructure.Persistence
 
         public async Task UpdateAsync(T entity)
         {
+            // Detach any existing tracked entity with the same ID to avoid tracking conflicts
+            var tracked = _dbSet.Local.FirstOrDefault(e => 
+                _context.Entry(e).Property("Id").CurrentValue is Guid id && 
+                id.Equals(_context.Entry(entity).Property("Id").CurrentValue));
+
+            if (tracked != null)
+            {
+                _context.Entry(tracked).State = EntityState.Detached;
+            }
+
             _dbSet.Update(entity);
             await _context.SaveChangesAsync();
         }

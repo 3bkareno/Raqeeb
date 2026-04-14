@@ -15,7 +15,7 @@ public static class AuthEndpoints
         app.MapPost("/api/auth/login", async (
             [FromForm] string email,
             [FromForm] string password,
-            [FromForm] bool rememberMe,
+            [FromForm] bool? rememberMe,
             [FromQuery] string? returnUrl,
             SignInManager<ApplicationUser> signInManager,
             UserManager<ApplicationUser> userManager,
@@ -27,7 +27,7 @@ public static class AuthEndpoints
                 return Results.Redirect($"/login?error=invalid");
             }
 
-            var result = await signInManager.PasswordSignInAsync(user, password, rememberMe, lockoutOnFailure: true);
+            var result = await signInManager.PasswordSignInAsync(user, password, rememberMe ?? false, lockoutOnFailure: true);
 
             if (result.Succeeded)
             {

@@ -172,11 +172,27 @@ else
     private readonly List<string> availableModules =
     [
         "HeaderSecurityScanner",
-        "SqlInjectionScanner",
         "XssScanner",
+        "SqlInjectionScanner",
+        "CorsScanner",
+        "ClickjackingScanner",
+        "SslTlsScanner",
+        "OpenRedirectScanner",
+        "CsrfScanner",
+        "SsrfScanner",
+        "HttpMethodScanner",
         "DirectoryTraversalScanner",
-        "SensitiveDataScanner",
-        "SslTlsScanner"
+        "InformationDisclosureScanner",
+        "SessionSecurityScanner",
+        "DirectoryBruteforceScanner",
+        "SubdomainEnumerationScanner",
+        "PortScanner",
+        "CommandInjectionScanner",
+        "XxeScanner",
+        "JwtSecurityScanner",
+        "IdorScanner",
+        "FileUploadScanner",
+        "LdapInjectionScanner"
     ];
 
     protected override async Task OnInitializedAsync()
