@@ -170,7 +170,9 @@ try
     builder.Services.AddTransient<IScannerModule, XxeScanner>();
     builder.Services.AddTransient<IScannerModule, JwtSecurityScanner>();
     builder.Services.AddTransient<IScannerModule, IdorScanner>();
-    
+    builder.Services.AddTransient<IScannerModule, FileUploadScanner>();
+    builder.Services.AddTransient<IScannerModule, LdapInjectionScanner>();
+
     builder.Services.AddHttpClient();
 
     // Application (MediatR)
